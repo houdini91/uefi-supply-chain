@@ -137,7 +137,7 @@ fixture churn), and the vectors are reproducible from the committed reference im
 
 ## 4. Track C — CHIPSEC #2843 → feature PR
 
-Has a maintainer green light on the design question we asked. Nothing blocks it but our own staleness.
+One maintainer (`npmitche`) said he likes the idea of an added `sha256_norm` field and routed it to `@BrentHoltsclaw`, who has not replied. That is interest in a field *shape* — not agreement to implement, and nothing has been discussed about *which* normalization. Nothing external blocks filing; nothing external has been promised either.
 
 | # | Step | Note |
 |---|---|---|
