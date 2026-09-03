@@ -157,15 +157,35 @@ taken from.
 |---|---|---|
 | Verifier | `producers/reconcile/ffs.py` → `canon_unrebase()` | Python + `pefile`. Byte-patching per §4; verified byte-for-byte identical to the previous parse-and-re-serialize implementation across all 122 reference modules. |
 | Producer | edk2 fork, `BaseTools/.../BuildReport.py` (`-Y SBOM`) | Declares the digest and the profile value. |
-| Verifier *(proposed)* | CHIPSEC `scan_image`, `sha256_norm` | [chipsec/chipsec#2843](https://github.com/chipsec/chipsec/issues/2843) — open. Would be a second, independent implementation in stdlib Python. |
+| — | CHIPSEC `scan_image` | A normalized-hash field has been *raised* as an idea in [chipsec/chipsec#2843](https://github.com/chipsec/chipsec/issues/2843) (open). CHIPSEC has **not** been asked to adopt this profile and has agreed to nothing; listed only so the idea's origin is traceable. |
 
-## 8. Non-goals
+## 8. Why not just declare the as-placed hash?
+
+Fair question, and it would remove the need for this profile entirely: have the build record each
+module's hash as it sits in the finished image, then a verifier carves and hashes and compares. Nothing
+to normalize. CHIPSEC would work against it unchanged, since an as-found hash is already what it
+computes.
+
+The catch is where the work lands. To declare an as-placed hash, the generator has to carve its own
+finished firmware image, including decompressing the volumes inside it. The intermediate `.Fv` build
+artifacts are not a shortcut — **8 of 117** modules in them differ from what actually ships (measured
+2026-09-03), because the volumes are re-packed during image assembly.
+
+That would turn the generator into a firmware parser. Today it hashes the `.efi` files the build
+already produced: no FV knowledge, no dependencies. That simplicity is the main argument for it being
+maintainable upstream (see `planning/UPSTREAM-RISKS.md` R3).
+
+So the choice is deliberate — keep the generator simple, put the work in the verifier, which carves
+the image anyway. Layout-independence is a bonus rather than the goal: the same hash identifies a
+module whichever image it lands in, which is also what makes it useful for allow-lists.
+
+## 9. Non-goals
 
 This profile does **not** define where the digest is carried, how it is signed, what a mismatch
 implies, or any policy. It is one comparison contract. Carriage is discussed separately in
 [`planning/normalized-module-identity.html`](../planning/normalized-module-identity.html).
 
-## 9. Status
+## 10. Status
 
 Draft. Nothing here has been proposed to any standards body. It is written to be pointed at, so that
 a normalization can be *referenced* rather than *re-specified* — which is precisely the objection
