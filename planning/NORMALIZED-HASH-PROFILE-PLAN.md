@@ -199,7 +199,8 @@ existing model.
 2025-06-28** and issue #3 is its only open item. Combined with Hughes' own read — IBVs/ODMs refuse anything
 costing time, money, or legal risk; the only levers are OEM mandate or regulation (EO / EU CRA) — the OSF
 track may not land on merit or timeline. That is an argument for *sequencing CHIPSEC first*, not for
-dropping OSF: the relationship and the UEFI-Forum room are worth more than the spec text.
+dropping OSF — standards work is slow everywhere, and the design questions raised on that thread have
+already improved this repo whether or not spec text ever lands.
 
 ---
 
