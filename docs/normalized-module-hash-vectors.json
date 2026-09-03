@@ -1,0 +1,1116 @@
+{
+  "profile": "uefi-pe-rebase0/v1",
+  "description": "Conformance vectors for the normalized UEFI PE32 module hash. A conformant implementation, given the same as-found PE32 bytes, reproduces every sha256_norm.",
+  "image_digest": "sha256:7965c31705bb824133d173fb9afe64d649005df2d4fc8878274ef25162fb8f37",
+  "sbom": "inputs/sbom.cdx.json",
+  "tool": "producers/reconcile/profile-vectors.py",
+  "summary": {
+    "declared": 122,
+    "vectors": 122,
+    "direct": 111,
+    "rebased_unrebased": 11,
+    "extract_fail": 0,
+    "no_pe32": 0,
+    "error": 0
+  },
+  "vectors": [
+    {
+      "name": "ScsiBus",
+      "guid": "0167ccc4d0f74f21a3ef9e64b7cdce8b",
+      "size": 28672,
+      "sha256_asfound": "ce6875bea2d7fa902d401fad9bffe6283fb0c268eb2b59916e6fd9df7e03dd30",
+      "sha256_norm": "ce6875bea2d7fa902d401fad9bffe6283fb0c268eb2b59916e6fd9df7e03dd30",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "Virtio10",
+      "guid": "0170f60c1d404651956df0bd9879d527",
+      "size": 32768,
+      "sha256_asfound": "4dd777ef787c3639c345161db2022c1f0e444969dd2e061c1e47cb1b97563294",
+      "sha256_norm": "4dd777ef787c3639c345161db2022c1f0e444969dd2e061c1e47cb1b97563294",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "MnpDxe",
+      "guid": "025bbfc7e6a94b8b82ad6815a1aeaf4a",
+      "size": 53248,
+      "sha256_asfound": "e8af24483fb35e05d204cd600995e07687cb23573f9bbe381e848c48a4f7bf18",
+      "sha256_norm": "e8af24483fb35e05d204cd600995e07687cb23573f9bbe381e848c48a4f7bf18",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "ScsiDisk",
+      "guid": "0a66e32237404ccead62bd172cecca35",
+      "size": 53248,
+      "sha256_asfound": "9b9dd5716c4fbe6a03ad281e444565d514077bcf078c0f6a5af5a89c4a128411",
+      "sha256_norm": "9b9dd5716c4fbe6a03ad281e444565d514077bcf078c0f6a5af5a89c4a128411",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "PciHotPlugInitDxe",
+      "guid": "11a6edf6a9be426da6ccb22fe51d9224",
+      "size": 28672,
+      "sha256_asfound": "7a330812117a555f989d3ec1e500e9b34beb1ccf457d521edc3e61c3360ef15e",
+      "sha256_norm": "7a330812117a555f989d3ec1e500e9b34beb1ccf457d521edc3e61c3360ef15e",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "VirtioBlkDxe",
+      "guid": "11d92dfb3ca94f93ba2e4780ed3e03b5",
+      "size": 28672,
+      "sha256_asfound": "e1445585e3219a71336e2333d7a24529ee808951fe445f684620c2e34882ed5a",
+      "sha256_norm": "e1445585e3219a71336e2333d7a24529ee808951fe445f684620c2e34882ed5a",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "PciHostBridgeDxe",
+      "guid": "128fb7705e7941769e519bb268a17dd1",
+      "size": 53248,
+      "sha256_asfound": "726306591d7a359edbd96f11c5c07586b0496e1dd6f795d61d935b2c6df4336c",
+      "sha256_norm": "726306591d7a359edbd96f11c5c07586b0496e1dd6f795d61d935b2c6df4336c",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "EbcDxe",
+      "guid": "13ac6dd073d011d4b06b00aa00bd6de7",
+      "size": 36864,
+      "sha256_asfound": "a3a4334481344dbc276066559b86169eecf1e6fd165012fb1d5255d1e04d29ef",
+      "sha256_norm": "a3a4334481344dbc276066559b86169eecf1e6fd165012fb1d5255d1e04d29ef",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "QemuFwCfgAcpiPlatform",
+      "guid": "17985e6fe7784d94aefac5dd2b77e186",
+      "size": 36864,
+      "sha256_asfound": "3f96d265f9906f3f5ce579c05758dcc7940477cafa6a76a06de3c6e0c27eae66",
+      "sha256_norm": "3f96d265f9906f3f5ce579c05758dcc7940477cafa6a76a06de3c6e0c27eae66",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "VariablePolicyDynamicCommand",
+      "guid": "17d0ef2a5933400789505749169d3dc5",
+      "size": 49152,
+      "sha256_asfound": "91a51c56b628d56a0fc0392d398bd5c606ec66b92090d63902b8d604830eab24",
+      "sha256_norm": "91a51c56b628d56a0fc0392d398bd5c606ec66b92090d63902b8d604830eab24",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "httpDynamicCommand",
+      "guid": "19618bce55ae09c637e94ce04084c7a1",
+      "size": 65536,
+      "sha256_asfound": "246c20c10fff1e09dd43ad10936c9d4a5b46fc29318e59e591b119c289a64bfe",
+      "sha256_norm": "246c20c10fff1e09dd43ad10936c9d4a5b46fc29318e59e591b119c289a64bfe",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "AtaBusDxe",
+      "guid": "19df145ab1d4453f850738816676d7f6",
+      "size": 36864,
+      "sha256_asfound": "59bc5721bb54e4d6e9039935f45b015489e42eb5f42778a92b8fa7ecfd80cb7b",
+      "sha256_norm": "59bc5721bb54e4d6e9039935f45b015489e42eb5f42778a92b8fa7ecfd80cb7b",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "CpuDxe",
+      "guid": "1a1e48869517440e9fde3be44cee2136",
+      "size": 131072,
+      "sha256_asfound": "682560823755733ad70c192c241ad590aef292f2f99bf2881a1a651ae7dd7a44",
+      "sha256_norm": "682560823755733ad70c192c241ad590aef292f2f99bf2881a1a651ae7dd7a44",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "TcpDxe",
+      "guid": "1a7e44682f554a56903c01265eb7622b",
+      "size": 86016,
+      "sha256_asfound": "fd44832a440e84f4af890a1566806917a4c06681ea9877788595119432ff3adf",
+      "sha256_norm": "fd44832a440e84f4af890a1566806917a4c06681ea9877788595119432ff3adf",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "PartitionDxe",
+      "guid": "1fa1f39efeff4aaebd7b38a070a3b609",
+      "size": 40960,
+      "sha256_asfound": "7a797ddb673c3875d7d2dfecef143e57ddc1830dd5f82538c7d44893548db061",
+      "sha256_norm": "7a797ddb673c3875d7d2dfecef143e57ddc1830dd5f82538c7d44893548db061",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "EmmcDxe",
+      "guid": "2145f72fe6f14440a82859dc9aab5f89",
+      "size": 45056,
+      "sha256_asfound": "318f610bd4016646700229350976708e48e91c82defb007d59f9cc8ddba26a2a",
+      "sha256_norm": "318f610bd4016646700229350976708e48e91c82defb007d59f9cc8ddba26a2a",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "PlatformPei",
+      "guid": "222c386d5abc4fb4b124fbb82488acf4",
+      "size": 98368,
+      "sha256_asfound": "fc99b50b94b6bd3faf713ee6434e51fed46eadbbce82d524bb01e5540a7784fb",
+      "sha256_norm": "a229c2de67d19ef4cce7e7ac6ca32431893599d38f2404a5ab6f2157bc8aa20d",
+      "rebased": true,
+      "declared_match": true
+    },
+    {
+      "name": "EmuVariableFvbRuntimeDxe",
+      "guid": "22dc2b60fe4042acb01f3ab1fad9aad8",
+      "size": 24576,
+      "sha256_asfound": "5c9bffe1585fb273199cd3df8f614cb9970ef6bd7d930b0c2ecd51b57d1ea443",
+      "sha256_norm": "5c9bffe1585fb273199cd3df8f614cb9970ef6bd7d930b0c2ecd51b57d1ea443",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "VirtioSerialDxe",
+      "guid": "23cace14eba449f69681c697ff0b649e",
+      "size": 32768,
+      "sha256_asfound": "ae667b1ca5976d28d0cf899e03aaa7369e1145e42e7e97e937503c1a531facc6",
+      "sha256_norm": "ae667b1ca5976d28d0cf899e03aaa7369e1145e42e7e97e937503c1a531facc6",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "UsbBusDxe",
+      "guid": "240612b7a06311d49a3a0090273fc14d",
+      "size": 53248,
+      "sha256_asfound": "05dc25d816c872392cb09d5af6fedfdb0401bc452eb014b46479feb785abf729",
+      "sha256_norm": "05dc25d816c872392cb09d5af6fedfdb0401bc452eb014b46479feb785abf729",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "CpuMpPei",
+      "guid": "280251c41d0940359062839acb5f18c1",
+      "size": 46400,
+      "sha256_asfound": "8d2de4120f80e3db31e296dd612d2f26b8dd2c8666f1ad1dbaec778aec757fae",
+      "sha256_norm": "dc68609eb163fecc4bb3e8bc49d2902dd27c0e7ee6fd561a4eabdf7e5e468527",
+      "rebased": true,
+      "declared_match": true
+    },
+    {
+      "name": "RamDiskDxe",
+      "guid": "28a03ff412b34305a417bb1a4f94081e",
+      "size": 53248,
+      "sha256_asfound": "1f6fdb2727ec2ae97a57786bfefa4003824dff0b0b550b24487c954dea7aa87e",
+      "sha256_norm": "1f6fdb2727ec2ae97a57786bfefa4003824dff0b0b550b24487c954dea7aa87e",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "CxlDxe",
+      "guid": "29e54f5e365a4235ba62c832d7660852",
+      "size": 28672,
+      "sha256_asfound": "ccc316a22b355fd886c0a4fabf92472f8865efb8707bfd63b8fab4b980113a75",
+      "sha256_norm": "ccc316a22b355fd886c0a4fabf92472f8865efb8707bfd63b8fab4b980113a75",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "UsbKbDxe",
+      "guid": "2d2e62cf9ecf43b7821994e7fc713dfe",
+      "size": 36864,
+      "sha256_asfound": "dd63ffceade5fb4f6f6b79a6b8dae9fa5fb7fc713dec1435b0f7b6302a3d0a67",
+      "sha256_norm": "dd63ffceade5fb4f6f6b79a6b8dae9fa5fb7fc713dec1435b0f7b6302a3d0a67",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "AmdSevDxe",
+      "guid": "2ec9da37ee354de986c56d9a81dc38a7",
+      "size": 32768,
+      "sha256_asfound": "5fe71c0cbc54350e6bb58511e40c1d63e04aed8627dcfaf6be9a2e700feda0e8",
+      "sha256_norm": "5fe71c0cbc54350e6bb58511e40c1d63e04aed8627dcfaf6be9a2e700feda0e8",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "LinuxInitrdDynamicShellCommand",
+      "guid": "2f30da26f51b4b6f85c431873c281bca",
+      "size": 45056,
+      "sha256_asfound": "cd28435e4c2e2ea2c3513c298b7ad1bf2022f2120eb2ab8cc0cb46604f5aa04d",
+      "sha256_norm": "cd28435e4c2e2ea2c3513c298b7ad1bf2022f2120eb2ab8cc0cb46604f5aa04d",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "UhciDxe",
+      "guid": "2fb92efa2ee04bae9eb67464125e1ef7",
+      "size": 40960,
+      "sha256_asfound": "73857215595dcd36abf048f488044a66b2e9722b1bb01e1109fe3207c368e684",
+      "sha256_norm": "73857215595dcd36abf048f488044a66b2e9722b1bb01e1109fe3207c368e684",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "HiiDatabase",
+      "guid": "348c4d62bfbd48829ecec80bb1c4783b",
+      "size": 131072,
+      "sha256_asfound": "738393bcdb0043c55834de38ff527c7b0bfa750bbe78930b8fc35e96de2816cd",
+      "sha256_norm": "738393bcdb0043c55834de38ff527c7b0bfa750bbe78930b8fc35e96de2816cd",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "PcRtc",
+      "guid": "378d7b658da94773b6e4a47826a833e1",
+      "size": 28672,
+      "sha256_asfound": "20788dc1b6b5164b202ca94bd517f46a3b2c593322df8fa6d9a20567ece7ce0d",
+      "sha256_norm": "20788dc1b6b5164b202ca94bd517f46a3b2c593322df8fa6d9a20567ece7ce0d",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "ConSplitterDxe",
+      "guid": "408edceccf6d477ca5a8b4844e3de281",
+      "size": 40960,
+      "sha256_asfound": "ca53aa13c2876e38c5f75c40acccce5cb6696ee901eb63748fa09c55d0c2c3d4",
+      "sha256_norm": "ca53aa13c2876e38c5f75c40acccce5cb6696ee901eb63748fa09c55d0c2c3d4",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "SmbiosPlatformDxe",
+      "guid": "4110465d5ff34f4bb58024ed0d06747a",
+      "size": 24576,
+      "sha256_asfound": "d682f09c6759b4ec1c73285bde95b70e02b7bea94bd01f45b3bfd77ff1934248",
+      "sha256_norm": "d682f09c6759b4ec1c73285bde95b70e02b7bea94bd01f45b3bfd77ff1934248",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "CapsuleRuntimeDxe",
+      "guid": "42857f0a13f24b218a2353d3f714b840",
+      "size": 16384,
+      "sha256_asfound": "ed470807078e8fc00bb85858e64c203a87fd2d59bdbf5941e4b6eefd2cd12def",
+      "sha256_norm": "ed470807078e8fc00bb85858e64c203a87fd2d59bdbf5941e4b6eefd2cd12def",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "SdDxe",
+      "guid": "430ac2f7eec6409394f79f825a7c1c40",
+      "size": 36864,
+      "sha256_asfound": "39ea56ac96eb078a4aac8616afa8535c72b038edb49f192bbeff22ed0746536c",
+      "sha256_norm": "39ea56ac96eb078a4aac8616afa8535c72b038edb49f192bbeff22ed0746536c",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "UiApp",
+      "guid": "462caa2176144503836e8ab6f4662331",
+      "size": 163840,
+      "sha256_asfound": "2442e781e49917c7f284ec7f34611bf847b203a5b6298b364b6aeff8c7822af6",
+      "sha256_norm": "2442e781e49917c7f284ec7f34611bf847b203a5b6298b364b6aeff8c7822af6",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "ResetSystemRuntimeDxe",
+      "guid": "4b28e4c7ff364e1093cfa82159e777c5",
+      "size": 28672,
+      "sha256_asfound": "54c585e6bf055908af85b83f4922cfd551ac7d9bcaa0c549bad1f21efe4f510f",
+      "sha256_norm": "54c585e6bf055908af85b83f4922cfd551ac7d9bcaa0c549bad1f21efe4f510f",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "ConPlatformDxe",
+      "guid": "51ccf3994fdf4e55a45be123f84d456a",
+      "size": 28672,
+      "sha256_asfound": "bbadf6ca2fb80e6a532a8a3599df66922e9d3a3aaa68185bc9f05d073a22ed61",
+      "sha256_norm": "bbadf6ca2fb80e6a532a8a3599df66922e9d3a3aaa68185bc9f05d073a22ed61",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "ArpDxe",
+      "guid": "529d3f93e8e94e73b1e1bdf6a9d50113",
+      "size": 36864,
+      "sha256_asfound": "5219e79e8d779d2ba39fd917941cac72009e6b6babe94ab27769e6a59d6052db",
+      "sha256_norm": "5219e79e8d779d2ba39fd917941cac72009e6b6babe94ab27769e6a59d6052db",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "PeiCore",
+      "guid": "52c05b140b98496cbc3b04b50211d680",
+      "size": 56256,
+      "sha256_asfound": "3a7b40c59c7382fa07ebbe7a4b0390bbe9d5a156f82c13c98367d362ec1c9ac7",
+      "sha256_norm": "1348ff9c695f80b31915aa9f159aa3490121c9af446438feb742f8e78e681051",
+      "rebased": true,
+      "declared_match": true
+    },
+    {
+      "name": "LocalApicTimerDxe",
+      "guid": "52fe8196f9de4d07b22f51f77a0e7c41",
+      "size": 24576,
+      "sha256_asfound": "533a10de62e1422387519886fc5a803e0edea0b7251613d35e6cde31cd2db471",
+      "sha256_norm": "533a10de62e1422387519886fc5a803e0edea0b7251613d35e6cde31cd2db471",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "VirtioRngDxe",
+      "guid": "58e26f0dcbac4bbab70f18221415665a",
+      "size": 24576,
+      "sha256_asfound": "b5934595b29844a3da7685c9b10000f7f20f1d228d11b6fb0c3b6706f8c1dfa5",
+      "sha256_norm": "b5934595b29844a3da7685c9b10000f7f20f1d228d11b6fb0c3b6706f8c1dfa5",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "NvmExpressDxe",
+      "guid": "5be3bdf453cf46a3a6a973c34a6e5ee3",
+      "size": 53248,
+      "sha256_asfound": "b7af1784893ac5b530cb5b0f88f661ebe823f1a2ff2e54d12003711e1b57e68c",
+      "sha256_norm": "b7af1784893ac5b530cb5b0f88f661ebe823f1a2ff2e54d12003711e1b57e68c",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "AtaAtapiPassThruDxe",
+      "guid": "5e523cb4d397498687bda6dd8b22f455",
+      "size": 57344,
+      "sha256_asfound": "895894e8b78ec6b990bbec0688a2077ae60ae138dc9cf398ad9f44588776e72d",
+      "sha256_norm": "895894e8b78ec6b990bbec0688a2077ae60ae138dc9cf398ad9f44588776e72d",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "VirtHstiDxe",
+      "guid": "60740cf3d428450080e604a5798241ed",
+      "size": 28672,
+      "sha256_asfound": "716693cfc8ed0d2744bd8b1e40da125853ac2f5f7e3c627d5181ece376a2d4d6",
+      "sha256_norm": "716693cfc8ed0d2744bd8b1e40da125853ac2f5f7e3c627d5181ece376a2d4d6",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "Hash2DxeCrypto",
+      "guid": "63e3bdcf2ac74ac09b9203a7541422ff",
+      "size": 28672,
+      "sha256_asfound": "11712296d09b972ed9586be33fec09b9e2340105270d90ca11b7e7581ac73415",
+      "sha256_norm": "11712296d09b972ed9586be33fec09b9e2340105270d90ca11b7e7581ac73415",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "CpuDxe",
+      "guid": "6490f1c5ebcc466588920075b9bb49b7",
+      "size": 98304,
+      "sha256_asfound": "9cfeae7763a6c07f1a69ffb30204d0657cef077fca0e667cbadc6d93c1ae2793",
+      "sha256_norm": "9cfeae7763a6c07f1a69ffb30204d0657cef077fca0e667cbadc6d93c1ae2793",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "DiskIoDxe",
+      "guid": "6b38f7b4ad9840e99093aca2b5a253c4",
+      "size": 32768,
+      "sha256_asfound": "e7e55f444b941066f8b9d9a7fe8e23e088b8a1924b1e47ad8157f8ffeb14f8bb",
+      "sha256_norm": "e7e55f444b941066f8b9d9a7fe8e23e088b8a1924b1e47ad8157f8ffeb14f8bb",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "StatusCodeHandlerRuntimeDxe",
+      "guid": "6c2004ef4e0e4be4b14c340eb4aa5891",
+      "size": 20480,
+      "sha256_asfound": "517939546dc450d25c7ae1a99c9e738e9143a008585a5695dd3432d4799034a6",
+      "sha256_norm": "517939546dc450d25c7ae1a99c9e738e9143a008585a5695dd3432d4799034a6",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "BdsDxe",
+      "guid": "6d33944aec754855a54d809c75241f6c",
+      "size": 126976,
+      "sha256_asfound": "6a1ddc9d4fa9143f44352cd205372e7527b93cf64079bf49935180a25f67550a",
+      "sha256_norm": "6a1ddc9d4fa9143f44352cd205372e7527b93cf64079bf49935180a25f67550a",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "Udp4Dxe",
+      "guid": "6d6963ab906d4a65a7cabd40e5d6af2b",
+      "size": 49152,
+      "sha256_asfound": "d3a6420d12831f23f95373941a32ac2042d7c2105e6cd42a1eb4583dbb687054",
+      "sha256_norm": "d3a6420d12831f23f95373941a32ac2042d7c2105e6cd42a1eb4583dbb687054",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "FvbServicesRuntimeDxe",
+      "guid": "733cbac2b23f4b92bc8efb01ce5907b7",
+      "size": 32768,
+      "sha256_asfound": "e8ac2db0f44c59b53f6730b1c78ad455a0d69e09bd908b2d7ac7af76904057e4",
+      "sha256_norm": "e8ac2db0f44c59b53f6730b1c78ad455a0d69e09bd908b2d7ac7af76904057e4",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "VirtioFsDxe",
+      "guid": "7bd9ddf78b83488eaec924c78610289c",
+      "size": 45056,
+      "sha256_asfound": "0554b12acd593b00c6ac6c66ad1b0a8f6c0d05d5b185220eedd8f588552c5575",
+      "sha256_norm": "0554b12acd593b00c6ac6c66ad1b0a8f6c0d05d5b185220eedd8f588552c5575",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "Shell",
+      "guid": "7c04a5839e3e4f1cad65e05268d0b4d1",
+      "size": 970752,
+      "sha256_asfound": "1d8081173d4fd1b377f399259fdf07ccd2ec47b510ec6102575ded6b70a3a716",
+      "sha256_norm": "1d8081173d4fd1b377f399259fdf07ccd2ec47b510ec6102575ded6b70a3a716",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "QemuKernelLoaderFsDxe",
+      "guid": "806040cadad94978a3b42d2ab0c8a48f",
+      "size": 32768,
+      "sha256_asfound": "8a35fcc667669fec1b0aff2157b0bde6a31650337e80290aa839b0ab31fe22c6",
+      "sha256_norm": "8a35fcc667669fec1b0aff2157b0bde6a31650337e80290aa839b0ab31fe22c6",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "PcdDxe",
+      "guid": "80cf725787ab47f9a3fed50b76d89541",
+      "size": 36864,
+      "sha256_asfound": "cc6ae1298b5e8ca8f7b2c44ce7a913e6d1126160224d253ac28c0069873b8bda",
+      "sha256_norm": "cc6ae1298b5e8ca8f7b2c44ce7a913e6d1126160224d253ac28c0069873b8bda",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "SataController",
+      "guid": "820c59bb274c43b283eadac673035a59",
+      "size": 24576,
+      "sha256_asfound": "88e47edbd67f651ee9954bdca461f72147ea7de1da6c33de0462142110f7f734",
+      "sha256_norm": "88e47edbd67f651ee9954bdca461f72147ea7de1da6c33de0462142110f7f734",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "VirtioPciDeviceDxe",
+      "guid": "83dd3b397caf4faca542e050b767e3a7",
+      "size": 24576,
+      "sha256_asfound": "8571ee2246d22a77057528e1b887f096b4d4bb1650dec21948a16ff91f84733e",
+      "sha256_norm": "8571ee2246d22a77057528e1b887f096b4d4bb1650dec21948a16ff91f84733e",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "SioBusDxe",
+      "guid": "864e1ca885eb4d639dcc6e0fc90ffd55",
+      "size": 24576,
+      "sha256_asfound": "cc3a70b02a6d71695722323272797725e79ad524ae41f48bf65a63f7f4ba9a28",
+      "sha256_norm": "cc3a70b02a6d71695722323272797725e79ad524ae41f48bf65a63f7f4ba9a28",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "IoMmuDxe",
+      "guid": "8657015bea43440d949aaf3be365c0fc",
+      "size": 40960,
+      "sha256_asfound": "e20af7cf968185d612ed9b952c6bf982d5566ecae033f43919e8bb8dd0530a9e",
+      "sha256_norm": "e20af7cf968185d612ed9b952c6bf982d5566ecae033f43919e8bb8dd0530a9e",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "IScsiDxe",
+      "guid": "86cddf93487245978af9a35ae4d3725f",
+      "size": 143360,
+      "sha256_asfound": "b0f96db7ecad4815125ed71fa0db45bd44ade284da94f83fe6c7d723fe8f1940",
+      "sha256_norm": "b0f96db7ecad4815125ed71fa0db45bd44ade284da94f83fe6c7d723fe8f1940",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "DxeIpl",
+      "guid": "86d70125baa34296a62f602bebbb9081",
+      "size": 18688,
+      "sha256_asfound": "b43bab56d6eee6661ba6df91e462c38ac5f66e77ee750a6f675b119cd8fc16df",
+      "sha256_norm": "1afd6545c6e2b1f8f519d1817941b120c462e352032c4563bb72dd4bd0fd05d0",
+      "rebased": true,
+      "declared_match": true
+    },
+    {
+      "name": "S3Resume2Pei",
+      "guid": "89e549b07cfe449d9ba310d8b2312d71",
+      "size": 18368,
+      "sha256_asfound": "5b4c35e5f2e03b0aabdeb7681d0a0547c193613a5c5258d3d920ece5c2070473",
+      "sha256_norm": "d13eb384e6d33824e220d7ee1e3e5243e131c02ebddfe63f0019dcbeaa577222",
+      "rebased": true,
+      "declared_match": true
+    },
+    {
+      "name": "SdMmcPciHcDxe",
+      "guid": "8e3259793fe14927aae28f5c4bd2af0d",
+      "size": 61440,
+      "sha256_asfound": "325235857587ad1ab0f81b4d511f25639de3a43797ebbbd7f48e3b15d8126a70",
+      "sha256_norm": "325235857587ad1ab0f81b4d511f25639de3a43797ebbbd7f48e3b15d8126a70",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "UdfDxe",
+      "guid": "905f13b08f914b0abd76e1e78f9422e4",
+      "size": 36864,
+      "sha256_asfound": "c2b7b67413f6601f4759254e83c3aa23281f50649b994a3a41f1143cb3a28a55",
+      "sha256_norm": "c2b7b67413f6601f4759254e83c3aa23281f50649b994a3a41f1143cb3a28a55",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "PciBusDxe",
+      "guid": "93b800049fb311d49a3a0090273fc14d",
+      "size": 73728,
+      "sha256_asfound": "277a2754fb6a6d9abb944cf1d4ecd4d628172f1be566c6b6fe5343be823689e5",
+      "sha256_norm": "277a2754fb6a6d9abb944cf1d4ecd4d628172f1be566c6b6fe5343be823689e5",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "Dhcp4Dxe",
+      "guid": "947347180bbc47fb96a5ee7a5ae6a2ad",
+      "size": 57344,
+      "sha256_asfound": "f783c64e02d7e82f3ef1201359d3dd2f27b84502deea7b7c0d87e8908fd814c8",
+      "sha256_norm": "f783c64e02d7e82f3ef1201359d3dd2f27b84502deea7b7c0d87e8908fd814c8",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "Fat",
+      "guid": "961578feb6b744c3af356bc705cd2b1f",
+      "size": 53248,
+      "sha256_asfound": "bbfda3b0a9b9e96820d2563403ee5365498ef5f6c4ea615cbf42ec7d639c8f00",
+      "sha256_norm": "bbfda3b0a9b9e96820d2563403ee5365498ef5f6c4ea615cbf42ec7d639c8f00",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "AcpiTableDxe",
+      "guid": "9622e42c8e384a089e8f54f784652f6b",
+      "size": 45056,
+      "sha256_asfound": "21d680753735a41450a709f7be2216f2fec1826a1f0310739b265622ba2d58ba",
+      "sha256_norm": "21d680753735a41450a709f7be2216f2fec1826a1f0310739b265622ba2d58ba",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "PcdPeim",
+      "guid": "9b3ada4fae564c248deaf03b7558ae50",
+      "size": 19840,
+      "sha256_asfound": "d752722585c4946710a83c44d9a3ae0bf9f26a5420ef1a080b43dddc66f7dbc2",
+      "sha256_norm": "3b830c78cb7480d6f7085a6c75152c9bafac3a4b60736670faa6c3da2775cd43",
+      "rebased": true,
+      "declared_match": true
+    },
+    {
+      "name": "DevicePathDxe",
+      "guid": "9b680fcead6b4f3ab60bf59899003443",
+      "size": 57344,
+      "sha256_asfound": "5fc2bd85e74d1f785369b959a10dc175c1caec3e58806ce30d2f00949dfcf44f",
+      "sha256_norm": "5fc2bd85e74d1f785369b959a10dc175c1caec3e58806ce30d2f00949dfcf44f",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "StatusCodeHandlerPei",
+      "guid": "9d225237fa01464ca949baabc02d31d0",
+      "size": 7808,
+      "sha256_asfound": "30ed8ce53a35031a8d47127de2b00deb5eb00b49d78c611c26675e355767e77e",
+      "sha256_norm": "9c525cfdf169d508f4fbb6ba8634fe68b3e084eb070e9f411d98a56baaaa5df8",
+      "rebased": true,
+      "declared_match": true
+    },
+    {
+      "name": "TerminalDxe",
+      "guid": "9e863906a40f4875977f5b93ff237fc6",
+      "size": 45056,
+      "sha256_asfound": "0513ad30b0506c317bb2c3540b252458e5bc52bf7426028c4638d0edfaad09ea",
+      "sha256_norm": "0513ad30b0506c317bb2c3540b252458e5bc52bf7426028c4638d0edfaad09ea",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "Ip4Dxe",
+      "guid": "9fb1a1f33b714324b39a745cbb015fff",
+      "size": 94208,
+      "sha256_asfound": "5adf6d16914bc29035f282df978572d6e2674f3bf80a5f345bbe9e4dd82eedf4",
+      "sha256_norm": "5adf6d16914bc29035f282df978572d6e2674f3bf80a5f345bbe9e4dd82eedf4",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "UsbMassStorageDxe",
+      "guid": "9fb4b4a742c04bcd85409bcc6711f83e",
+      "size": 40960,
+      "sha256_asfound": "9424482b348b08dbac166f03626b840467e5f84927802025c058a86b6b6c5d40",
+      "sha256_norm": "9424482b348b08dbac166f03626b840467e5f84927802025c058a86b6b6c5d40",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "CpuIo2Dxe",
+      "guid": "a19b1fe7c1bc49f8875f54a5d542443f",
+      "size": 24576,
+      "sha256_asfound": "d2a2aac7de3a41f6f29da08e19d7e2a06e4ddb8338783ab8b64dcabb5ab9d5ae",
+      "sha256_norm": "d2a2aac7de3a41f6f29da08e19d7e2a06e4ddb8338783ab8b64dcabb5ab9d5ae",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "DpcDxe",
+      "guid": "a210f973229d4f4daa379895e6c9eaba",
+      "size": 20480,
+      "sha256_asfound": "1cd2f9effffa9136db5ffbf7ac740d59c720aa3472ec5bc92e58e949c8f4a56b",
+      "sha256_norm": "1cd2f9effffa9136db5ffbf7ac740d59c720aa3472ec5bc92e58e949c8f4a56b",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "SnpDxe",
+      "guid": "a2f436eaa1274ef8957c8048606ff670",
+      "size": 45056,
+      "sha256_asfound": "ab5fcbe075e1e59c11f8e43743f448127907653cb48adf14633b31020f83bda3",
+      "sha256_norm": "ab5fcbe075e1e59c11f8e43743f448127907653cb48adf14633b31020f83bda3",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "ReportStatusCodeRouterPei",
+      "guid": "a3610442e69f4df382ca2360c4031a23",
+      "size": 9536,
+      "sha256_asfound": "0f842ca08475bcd9f33f92e1f720e18f5b2ccd0ec6401ed58c3b8bd5f43f2c8b",
+      "sha256_norm": "f5dd52811bfaae491c2bdc81ab74f8a524e942e7b242b1086a29e4d931d5a9f9",
+      "rebased": true,
+      "declared_match": true
+    },
+    {
+      "name": "TftpDynamicCommand",
+      "guid": "a487a47851ef48aa87947bee2a0562f1",
+      "size": 57344,
+      "sha256_asfound": "53d7fa9b4f164eba35e6b647591431ca7c90d8da583e9f7cb642067f960123a4",
+      "sha256_norm": "53d7fa9b4f164eba35e6b647591431ca7c90d8da583e9f7cb642067f960123a4",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "VirtioNetDxe",
+      "guid": "a92cdb4b82f14e0ba5168a655d371524",
+      "size": 36864,
+      "sha256_asfound": "f3b198a56a12d2bbdc6e8520ffcde06b3bc61f5cdd9a6a978a0292044c6a42f5",
+      "sha256_norm": "f3b198a56a12d2bbdc6e8520ffcde06b3bc61f5cdd9a6a978a0292044c6a42f5",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "TcgMor",
+      "guid": "ad416ce3a48345b194c24b4e4d575562",
+      "size": 20480,
+      "sha256_asfound": "d1b0894c336c6a8f89cca828326926c4e8b403a3e8844083484c47c24085d0d7",
+      "sha256_norm": "d1b0894c336c6a8f89cca828326926c4e8b403a3e8844083484c47c24085d0d7",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "MonotonicCounterRuntimeDxe",
+      "guid": "ad608272d07f4964801e7bd3b7888652",
+      "size": 16384,
+      "sha256_asfound": "a657b83fb8823e059af3ec8777fd44f517702ed6380be038778e895f4bc64057",
+      "sha256_norm": "a657b83fb8823e059af3ec8777fd44f517702ed6380be038778e895f4bc64057",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "RuntimeDxe",
+      "guid": "b601f8c443b7478495b1f4226cb40cee",
+      "size": 24576,
+      "sha256_asfound": "6b5a424105de18724dad2124964441a63b70fc26834f5ceded87c07301599d38",
+      "sha256_norm": "6b5a424105de18724dad2124964441a63b70fc26834f5ceded87c07301599d38",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "XhciDxe",
+      "guid": "b7f50e91a759412cade4dcd03e7f7c28",
+      "size": 69632,
+      "sha256_asfound": "2408e8f5fbc26381f0088232231255f65a4f770cc0b740ab2d1a5e9464d71b86",
+      "sha256_norm": "2408e8f5fbc26381f0088232231255f65a4f770cc0b740ab2d1a5e9464d71b86",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "BootGraphicsResourceTableDxe",
+      "guid": "b8e62775bb0a43f0a8435be8b14f8ccd",
+      "size": 24576,
+      "sha256_asfound": "af9abd8bcdc6ad459e03e135c8f07e543cf39898cb6acced5b561baea77128e0",
+      "sha256_norm": "af9abd8bcdc6ad459e03e135c8f07e543cf39898cb6acced5b561baea77128e0",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "UefiPxeBcDxe",
+      "guid": "b95e9fda26de48d288071f9107ac5e3a",
+      "size": 86016,
+      "sha256_asfound": "95f6dee8afaef4d670cf6336ca0f9e10150f32c241ae661854e80e890cbe14a0",
+      "sha256_norm": "95f6dee8afaef4d670cf6336ca0f9e10150f32c241ae661854e80e890cbe14a0",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "RngDxe",
+      "guid": "b981a8356ee84f4cae0b210aa0bfbf01",
+      "size": 24576,
+      "sha256_asfound": "92eb4fec6f533f7bc7b6b1ec552713df25c79e9c467b23f2e14822ff24e630e0",
+      "sha256_norm": "92eb4fec6f533f7bc7b6b1ec552713df25c79e9c467b23f2e14822ff24e630e0",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "S3SaveStateDxe",
+      "guid": "bdce85bbfbaa4f4e9264501a2c249581",
+      "size": 36864,
+      "sha256_asfound": "6fca329baddc2bda0b9d65ed24ed955292dd638428ccbaa7a25ab865070a3611",
+      "sha256_norm": "6fca329baddc2bda0b9d65ed24ed955292dd638428ccbaa7a25ab865070a3611",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "EhciDxe",
+      "guid": "bdfe430e8f2a4db099916f856594777e",
+      "size": 49152,
+      "sha256_asfound": "3f360689495fe1c61c49eb7f9ebf0e44287dd7394c25fdf238a7908337a8a388",
+      "sha256_norm": "3f360689495fe1c61c49eb7f9ebf0e44287dd7394c25fdf238a7908337a8a388",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "Ps2KeyboardDxe",
+      "guid": "c4d1f932821f4744bf066d30f7730f8d",
+      "size": 36864,
+      "sha256_asfound": "9c84928a53fd946a8d41402118e5fea7a9491cb5cd2ebdf45df807d20133be0a",
+      "sha256_norm": "9c84928a53fd946a8d41402118e5fea7a9491cb5cd2ebdf45df807d20133be0a",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "Metronome",
+      "guid": "c8339973a5634561b858d8476f9defc4",
+      "size": 24576,
+      "sha256_asfound": "665acffc2f8fbc2e57408654ac433ced02d787eeb6458311517925367e525db4",
+      "sha256_norm": "665acffc2f8fbc2e57408654ac433ced02d787eeb6458311517925367e525db4",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "VariableRuntimeDxe",
+      "guid": "cbd2e4d570684ff5b4629822b4ad8d60",
+      "size": 65536,
+      "sha256_asfound": "09443941c7963f057f3e33450f417694462dd73db3c2240435da1f1be0ae8b38",
+      "sha256_norm": "09443941c7963f057f3e33450f417694462dd73db3c2240435da1f1be0ae8b38",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "GraphicsConsoleDxe",
+      "guid": "cccb0c284b2411d59a5a0090273fc14d",
+      "size": 32768,
+      "sha256_asfound": "e0372b1e5b0cc0b440cd05c7df05a706bae8a843b824403e2e6e58f6da913586",
+      "sha256_norm": "e0372b1e5b0cc0b440cd05c7df05a706bae8a843b824403e2e6e58f6da913586",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "EnglishDxe",
+      "guid": "cd3bafb650fb4fe88e4eab74d2c1a600",
+      "size": 20480,
+      "sha256_asfound": "5bd905938bd54ffd3048f7c94abc6f5941f51c34b9837ba17bf70358acf03a87",
+      "sha256_norm": "5bd905938bd54ffd3048f7c94abc6f5941f51c34b9837ba17bf70358acf03a87",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "SmbiosMeasurementDxe",
+      "guid": "d27fed59abb44fedbead2a878c7e4a7e",
+      "size": 24576,
+      "sha256_asfound": "658cec99e3d19e36f037b4536e064fa8986ed521c126cf9ca7dc6416434eed0a",
+      "sha256_norm": "658cec99e3d19e36f037b4536e064fa8986ed521c126cf9ca7dc6416434eed0a",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "VirtioGpuDxe",
+      "guid": "d6099b94cd974cc587147f6312701a8a",
+      "size": 36864,
+      "sha256_asfound": "96158fcd14a548912f66224d5f1d5a8d5a6eae39a6de6d2d4654a961a7077392",
+      "sha256_norm": "96158fcd14a548912f66224d5f1d5a8d5a6eae39a6de6d2d4654a961a7077392",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "DxeCore",
+      "guid": "d6a2cb7f6a184e2fb43b9920a733700a",
+      "size": 212992,
+      "sha256_asfound": "6edc8fbf0f4be54a2e708d74dd02c4a307aa7bb5a3071eaf48040427564d196d",
+      "sha256_norm": "6edc8fbf0f4be54a2e708d74dd02c4a307aa7bb5a3071eaf48040427564d196d",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "ReportStatusCodeRouterRuntimeDxe",
+      "guid": "d93ce3d8a7eb47308c8ecc466a9ecc3c",
+      "size": 24576,
+      "sha256_asfound": "e2ba0565655b0e10d297ba2b111cfa0ba2c4b872da4592cddf2d6680182c1341",
+      "sha256_norm": "e2ba0565655b0e10d297ba2b111cfa0ba2c4b872da4592cddf2d6680182c1341",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "PlatformDxe",
+      "guid": "d9dcc5df4007435e90988970935504b2",
+      "size": 32768,
+      "sha256_asfound": "6a66ccd7f42c699d521786af5e6807919cfd1b8b37e7592e0f13b59171718b89",
+      "sha256_norm": "6a66ccd7f42c699d521786af5e6807919cfd1b8b37e7592e0f13b59171718b89",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "Mtftp4Dxe",
+      "guid": "dc3641b82fa84ed3bc1ff9962a03454b",
+      "size": 49152,
+      "sha256_asfound": "66a323cdf4349cd9678a8dca699f6166889f8ec1c4c417c50070655243166b7d",
+      "sha256_norm": "66a323cdf4349cd9678a8dca699f6166889f8ec1c4c417c50070655243166b7d",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "QemuRamfbDxe",
+      "guid": "dce1b0947dc645d09fddd7fc3cc3e4ef",
+      "size": 32768,
+      "sha256_asfound": "f54865e283bf2344c99523316e5c401bca9656364f5b6813bb2ac0dd470880f3",
+      "sha256_norm": "f54865e283bf2344c99523316e5c401bca9656364f5b6813bb2ac0dd470880f3",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "SecMain",
+      "guid": "df1ccef6f3014a639661fc6030dcc880",
+      "size": 64960,
+      "sha256_asfound": "3ac714bcbe09e5d611a3c38731e18316ae46f0421d1c1493d61cf827a8c0bd8c",
+      "sha256_norm": "6e4c0ec15d821d3446ed93608aa67c197745ddc3feba5911993e27a7c05a25c6",
+      "rebased": true,
+      "declared_match": true
+    },
+    {
+      "name": "PciSioSerialDxe",
+      "guid": "e2775b47d4534ee3ada7391a1b05ac17",
+      "size": 36864,
+      "sha256_asfound": "2ffbc77825951d05b99d3318f0d4374726ab7c38d33d1ac273f5b07c01ca2521",
+      "sha256_norm": "2ffbc77825951d05b99d3318f0d4374726ab7c38d33d1ac273f5b07c01ca2521",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "QemuVideoDxe",
+      "guid": "e3752948b9a1477090c4df41c38986be",
+      "size": 36864,
+      "sha256_asfound": "2d3ef8a6aa179271960ec59c903d3276d5e52db05efcb94d0b39f56d9d4bf5cf",
+      "sha256_norm": "2d3ef8a6aa179271960ec59c903d3276d5e52db05efcb94d0b39f56d9d4bf5cf",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "VlanConfigDxe",
+      "guid": "e4f61863fe2c4b56a8f408519bc439df",
+      "size": 36864,
+      "sha256_asfound": "fbdc4065788a9fae57418fd892359641d0fc59a83da92fde6d7d42badf5b55ce",
+      "sha256_norm": "fbdc4065788a9fae57418fd892359641d0fc59a83da92fde6d7d42badf5b55ce",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "DisplayEngine",
+      "guid": "e660ea85058e4b55a54bf02f83a24707",
+      "size": 90112,
+      "sha256_asfound": "84f02e39fffc0c4bf0fb1517bb7931232a2c7da77022c58543b39bdda01183cd",
+      "sha256_norm": "84f02e39fffc0c4bf0fb1517bb7931232a2c7da77022c58543b39bdda01183cd",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "TdxDxe",
+      "guid": "e750224e7bce40afb5bb47e3611eb5c2",
+      "size": 32768,
+      "sha256_asfound": "1e012c3ac6bfdda8e5a419ca1d41c0c4cb8575b367e0b8ba13fd4210e5b3e0f9",
+      "sha256_norm": "1e012c3ac6bfdda8e5a419ca1d41c0c4cb8575b367e0b8ba13fd4210e5b3e0f9",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "SetupBrowser",
+      "guid": "ebf342feb1d34ef8957c8048606ff671",
+      "size": 114688,
+      "sha256_asfound": "493eda7dc832f9815591af3c75f7d260c868fc5d17ea40299ebec6e0e88c3156",
+      "sha256_norm": "493eda7dc832f9815591af3c75f7d260c868fc5d17ea40299ebec6e0e88c3156",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "DriverHealthManagerDxe",
+      "guid": "ebf8ed7c0dd1478784f1f48d537dcacf",
+      "size": 36864,
+      "sha256_asfound": "29fa4a95df239c6f227b93b021dd9acdc722cb703db22741d9dcd5da1891cce5",
+      "sha256_norm": "29fa4a95df239c6f227b93b021dd9acdc722cb703db22741d9dcd5da1891cce5",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "CpuMpPei",
+      "guid": "edadeb9dddba48bd9d22c1c169c8c5c6",
+      "size": 77760,
+      "sha256_asfound": "ec1c384aa228527da6190b84ec530914c8339f80fda21976603534644a11ce15",
+      "sha256_norm": "92777536fa0cd330f23f61290834c4481d1aa74aef47fda3c8ce60547651ab64",
+      "rebased": true,
+      "declared_match": true
+    },
+    {
+      "name": "BootManagerMenuApp",
+      "guid": "eec25bdc67f24d95b1d5f81b2039d11d",
+      "size": 77824,
+      "sha256_asfound": "6c113465e06405b743995b128f7c04e64108659ba19e09c0df1dd079b6732fd0",
+      "sha256_norm": "6c113465e06405b743995b128f7c04e64108659ba19e09c0df1dd079b6732fd0",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "TdTcg2Dxe",
+      "guid": "f062221ec60744c2b0b4c3886331d351",
+      "size": 45056,
+      "sha256_asfound": "b83b2b9aa1d31f530cc8efb8139b227a5847c474e4e6bb9b25bbd347fdccc3ea",
+      "sha256_norm": "b83b2b9aa1d31f530cc8efb8139b227a5847c474e4e6bb9b25bbd347fdccc3ea",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "WatchdogTimer",
+      "guid": "f099d67f71ae4c36b2a3dceb0eb2b7d8",
+      "size": 20480,
+      "sha256_asfound": "5a6564b026d40dea2d673746790a58196972cbd247a18054d82616559bd98454",
+      "sha256_norm": "5a6564b026d40dea2d673746790a58196972cbd247a18054d82616559bd98454",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "VirtioInputDxe",
+      "guid": "f141b1e59c7c44ccafaae87d7689b113",
+      "size": 32768,
+      "sha256_asfound": "05a8093042d8131d6c679fdcb12d0d9b3437683a72805aded3632cef9771141e",
+      "sha256_norm": "05a8093042d8131d6c679fdcb12d0d9b3437683a72805aded3632cef9771141e",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "WsmtDxe",
+      "guid": "f6394dd2bafd4d8e999e7590df8fc546",
+      "size": 16384,
+      "sha256_asfound": "0bf631f67933b08c2a2bb2b6a9543cce6e38d23f0b210a5e5e819fee90662b4c",
+      "sha256_norm": "0bf631f67933b08c2a2bb2b6a9543cce6e38d23f0b210a5e5e819fee90662b4c",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "IncompatiblePciDeviceSupportDxe",
+      "guid": "f6697ac4a7764ee1b6431feff2b615bb",
+      "size": 16384,
+      "sha256_asfound": "236069f62b6aa5d93ce85713e90faa88fd3d6eea5d9c73db64c90a5f12bdd3ed",
+      "sha256_norm": "236069f62b6aa5d93ce85713e90faa88fd3d6eea5d9c73db64c90a5f12bdd3ed",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "LogoDxe",
+      "guid": "f74d20ee37e748fc97f79b1047749c69",
+      "size": 32768,
+      "sha256_asfound": "d6d14239efdf9780736298072e7b0ca7b3f0f4f05efecf2347af6f0f22bfe23c",
+      "sha256_norm": "d6d14239efdf9780736298072e7b0ca7b3f0f4f05efecf2347af6f0f22bfe23c",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "SecurityStubDxe",
+      "guid": "f80697e97fd64665864688e33ef71dfc",
+      "size": 32768,
+      "sha256_asfound": "eb8624498787b274c1fea43e9d606db657d07f862e3d2d6795e3767093576b99",
+      "sha256_norm": "eb8624498787b274c1fea43e9d606db657d07f862e3d2d6795e3767093576b99",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "SmbiosDxe",
+      "guid": "f9d88642073749bc81b56889cd57d9ea",
+      "size": 36864,
+      "sha256_asfound": "6dca25c6f44e12ad3bafaa5ee4cc71068406efb6067c2680f812d6c84f4247c0",
+      "sha256_norm": "6dca25c6f44e12ad3bafaa5ee4cc71068406efb6067c2680f812d6c84f4247c0",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "BootScriptExecutorDxe",
+      "guid": "fa20568b548b4b2b81ef1ba08d4a3cec",
+      "size": 106496,
+      "sha256_asfound": "ce81eb60c21390b4264cb74aae29911b5bfdc8b70b3882d1fa649eb1fc22ad88",
+      "sha256_norm": "ce81eb60c21390b4264cb74aae29911b5bfdc8b70b3882d1fa649eb1fc22ad88",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "VirtioScsiDxe",
+      "guid": "fab5d4f483c04aaf8480442d11df6cea",
+      "size": 28672,
+      "sha256_asfound": "d38dbb926a1185be05ff38a5787c1a0bc3ac003f408eafd6cfb6d53a24948a9d",
+      "sha256_norm": "d38dbb926a1185be05ff38a5787c1a0bc3ac003f408eafd6cfb6d53a24948a9d",
+      "rebased": false,
+      "declared_match": true
+    },
+    {
+      "name": "TdTcg2Pei",
+      "guid": "fcb3a3d66274411ca548bd0e717d533a",
+      "size": 13504,
+      "sha256_asfound": "fcb74c7250d487d82800a353ac3cd6a1296b0a8da68b7935c8c5306e9443f002",
+      "sha256_norm": "d96063c436f73278b0706f51c0f205dd466694b123a51cadbfc7beffd940c4ab",
+      "rebased": true,
+      "declared_match": true
+    },
+    {
+      "name": "FaultTolerantWriteDxe",
+      "guid": "fe5cea764f7249e8986f2cd899dffe5d",
+      "size": 32768,
+      "sha256_asfound": "178135d778f7d72bfc9b06a63ef7dded6233b6e6ec99e14cf965d41bd268dc41",
+      "sha256_norm": "178135d778f7d72bfc9b06a63ef7dded6233b6e6ec99e14cf965d41bd268dc41",
+      "rebased": false,
+      "declared_match": true
+    }
+  ]
+}

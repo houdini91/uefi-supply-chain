@@ -167,7 +167,16 @@ def canon_unrebase(pe_bytes):
     were shifted, so this is exact and reversible. A module with NO relocation table has nothing to
     reverse — rebasing moved only its ImageBase — so header normalization alone canonicalizes it. A
     real tamper changes code the relocations don't cover, so it still fails. Returns canonical bytes,
-    or None if pefile is unavailable."""
+    or None if pefile is unavailable.
+
+    Every change is an IN-PLACE byte patch at a computed file offset — the image is never
+    parsed-and-re-serialized. That matters because this normal form is the comparison contract
+    between a build-time producer and an independent verifier (see
+    ``planning/normalized-module-identity.html``): re-serializing would make the output depend on
+    a particular PE library's writer, which a second implementation could not be expected to
+    reproduce. Byte patching depends only on the input bytes and the documented PE field offsets.
+    Verified as a faithful drop-in for the former pefile ``write()`` path: byte-for-byte identical
+    output on all 122 modules of the OVMF reference, all matching their declared SBOM hash."""
     if pefile is None:
         return None
     pe = pefile.PE(data=pe_bytes, fast_load=True)
@@ -202,8 +211,29 @@ def canon_unrebase(pe_bytes):
                     # HIGH/LOW/HIGHADJ/ARM/etc. — not handled; fail closed so we never emit a
                     # partially-un-rebased (wrong) image as if it were canonical.
                     raise ValueError("unsupported relocation type %d" % e.type)
-    pe2 = pefile.PE(data=bytes(buf), fast_load=True)
-    pe2.OPTIONAL_HEADER.ImageBase = 0
-    pe2.FILE_HEADER.TimeDateStamp = 0
-    pe2.OPTIONAL_HEADER.CheckSum = 0
-    return pe2.write()
+    # Header normalization, as byte patches at their documented file offsets. Layout:
+    #   e_lfanew @ 0x3C -> "PE\0\0" (4) -> COFF FILE_HEADER (20) -> OPTIONAL_HEADER
+    #   FILE_HEADER.TimeDateStamp   @ fh + 4
+    #   OPTIONAL_HEADER.CheckSum    @ oh + 64   (same for PE32 and PE32+)
+    #   OPTIONAL_HEADER.ImageBase   @ oh + 28 (4 bytes, PE32)  /  oh + 24 (8 bytes, PE32+)
+    if len(buf) < 0x40:
+        raise ValueError("image too small for a DOS header")
+    e_lfanew = struct.unpack_from("<I", buf, 0x3C)[0]
+    if e_lfanew + 4 + 20 + 68 > len(buf):
+        raise ValueError("e_lfanew %#x leaves no room for the PE headers" % e_lfanew)
+    if bytes(buf[e_lfanew:e_lfanew + 4]) != b"PE\0\0":
+        raise ValueError("no PE signature at e_lfanew %#x" % e_lfanew)
+    fh = e_lfanew + 4
+    oh = fh + 20
+    magic = struct.unpack_from("<H", buf, oh)[0]
+    if magic == 0x20B:          # PE32+ — no BaseOfData, ImageBase is 8 bytes
+        ib_off, ib_fmt = oh + 24, "<Q"
+    elif magic == 0x10B:        # PE32
+        ib_off, ib_fmt = oh + 28, "<I"
+    else:
+        # Fail closed rather than emit a partially-normalized image.
+        raise ValueError("unsupported optional-header magic %#x" % magic)
+    struct.pack_into("<I", buf, fh + 4, 0)      # TimeDateStamp
+    struct.pack_into("<I", buf, oh + 64, 0)     # CheckSum
+    struct.pack_into(ib_fmt, buf, ib_off, 0)    # ImageBase
+    return bytes(buf)

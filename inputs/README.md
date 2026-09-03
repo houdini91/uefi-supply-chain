@@ -7,7 +7,7 @@ without a full firmware build:
 
 | File | What | Produced by |
 |---|---|---|
-| `sbom.cdx.json` | CycloneDX 1.6 SBOM (311 components; firmware digest in `metadata.component`) | edk2 `-Y SBOM` (fork PR #6) |
+| `sbom.cdx.json` | CycloneDX 1.6 SBOM (311 components; firmware digest in `metadata.component`) | edk2 `-Y SBOM` (fork, commit `eb53e5a` — see the provenance note below) |
 | `sbom.spdx.json` | SPDX 2.3 view — **native** `-Y SPDX` output (supplier + BSD-2-Clause-Patent license + primaryPackagePurpose on every package; DEPENDS_ON relationships) | edk2 `-Y SPDX` (fork) |
 | `sbom.uswid` | coSWID view + embed carrier | `producers/interop/to-coswid.sh` (uSWID) |
 | `reconcile-verdict.json` | declared-vs-observed **membership** verdict (+ `image_digest`, anchor leg 2) | `producers/reconcile/carve.sh` |
@@ -35,6 +35,26 @@ over these bundles, not a standalone artifact.
 
 > Not to be confused with `oss-lane/fixtures/` — those are hand-authored **test vectors** (one per gate
 > failure mode), not real evidence.
+
+## Provenance of the reference SBOM — which generator revision produced it (2026-09-03)
+
+The committed reference is **self-attributing**: `metadata.component.properties` carries
+`edk2:sourceRevision = git:eb53e5a75ebb3f153f64646e04bc69ffd499d463`, the edk2-fork commit the
+image and SBOM were built from. The assembler surfaces it into the gate input as
+`provenance.source_commit`, so the signed evidence records which source produced these bytes.
+
+**It is not the fork's current tip.** `eb53e5a` is an ancestor of the fork's `master` but roughly
+25 commits behind it — the reference predates the generator hardening that added the
+`raw-pe32` canonicalization fallback. Two consequences worth stating rather than discovering later:
+
+- The reference SBOM's declared hashes are all `edk2:hashCanonicalForm = genfw-rebase-0`. The
+  `raw-pe32` profile is *defined* (see [`docs/normalized-module-hash-profile.md`](../docs/normalized-module-hash-profile.md)
+  and `data.supported_hash_profiles`) but **not exercised** by this reference.
+- Re-deriving from the fork's current `master` changes the anchor `D`, which forces every negative
+  fixture to be re-cut. That is the documented reference-consistency freeze
+  (`planning/REVIEW-ROUND-2-FINDINGS.md` P1.1), and it belongs with the CI-builds-real-firmware
+  work (`planning/CI-REAL-EVIDENCE.md`) — which rebuilds anyway — not as a standalone step that
+  would pay the re-cut cost twice.
 
 ## Note on `sbom.cdx.json` hardening annotations (2026-08-07)
 
