@@ -6,6 +6,10 @@
   "hash_exempt": {
     "ResetVector": "Raw reset-vector blob (SEC reset vector), not a PE/COFF image, so the GenFw --rebase 0 canonical-hash path does not apply. Explicit reviewed exemption for the component-integrity rule, not a silent pass. Reviewer: houdini91, 2026-08-02."
   },
+  "supported_hash_profiles": {
+    "_comment": "Hash canonicalization profiles this verifier IMPLEMENTS, i.e. can re-derive from shipped bytes. A declared digest is comparable to a re-derived one ONLY when both used the same preimage transformation. Keyed by the value the SBOM carries in edk2:hashCanonicalForm. Spec: docs/normalized-module-hash-profile.md. An SBOM declaring a profile absent from this map is NOT comparable and the byte-integrity report fails and names it — rather than comparing digests over different preimages and calling the result a match or a tamper.",
+    "genfw-rebase-0": "PE32/PE32+ normalized to ImageBase 0: base relocations reversed (HIGHLOW/DIR64), then ImageBase/TimeDateStamp/CheckSum zeroed as in-place byte patches. Implemented by producers/reconcile/ffs.py canon_unrebase(); conformance vectors in docs/normalized-module-hash-vectors.json (122 modules, 11 exercising the un-rebase)."
+  },
   "byte_integrity_exempt": {
     "_comment": "Reviewed exemptions for the byte-integrity gate \u2014 {\"ModuleName\": \"reason it genuinely cannot be byte-verified (e.g. a TE-only or compressed section) + reviewer + date\"}. EMPTY today: the reference build byte-verifies all 122 PE-carrying modules. A module is added ONLY after human review; anything un-verifiable and NOT listed here fails the gate and is named."
   },

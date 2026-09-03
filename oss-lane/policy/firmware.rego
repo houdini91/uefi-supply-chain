@@ -126,6 +126,23 @@ _byte_integrity_ok if {
 	input.byte_integrity.checked == input.sbom.integrity.hashed # coverage: the verdict covers EVERY declared hashable module — not a cherry-picked / stale subset (parity with reconcile's matched==declared)
 	input.byte_integrity.modified_count == 0 # a MODIFIED module always fails — there is NO exemption for tampering
 	count(_byte_integrity_unexpected) == 0 # every un-verifiable (skipped/errored) module is a REVIEWED exemption (data.byte_integrity_exempt), else DENY and name it
+	count(_byte_integrity_unsupported_profiles) == 0 # every declared hash was computed under a canonicalization profile this verifier IMPLEMENTS — a digest over a different preimage is not comparable
+}
+
+# Canonicalization profiles the SBOM's declared hashes were computed under that this verifier does
+# NOT implement. Comparing a declared digest to a re-derived one is only meaningful when both sides
+# used the SAME preimage transformation: 'genfw-rebase-0' (normalized to ImageBase 0) and
+# 'raw-pe32' (un-normalized) are NOT comparable to each other, and an unrecognized profile is not
+# comparable to anything. Without this, the gate compares two digests with no assertion that they
+# describe the same canonical form — a silent-agreement assumption. See
+# docs/normalized-module-hash-profile.md.
+#
+# Fail-closed only on EVIDENCE: an older gate-input that carries no hash_profiles fact yields an
+# empty set, so this can turn a pass into a fail when the SBOM declares a profile we cannot honour,
+# but never weakens a verdict that already held.
+_byte_integrity_unsupported_profiles contains p if {
+	some p in object.get(input.sbom, ["integrity", "hash_profiles"], [])
+	not data.supported_hash_profiles[p]
 }
 
 # Modules that could not be byte-verified (skipped or errored) and are NOT on the reviewed
@@ -147,6 +164,13 @@ _byte_integrity_msg := sprintf("byte-integrity: %d module(s) could NOT be byte-v
 	input.byte_integrity.modified_count == 0
 	count(_byte_integrity_unexpected) > 0
 }
+_byte_integrity_msg := sprintf("byte-integrity: the SBOM declares hash canonicalization profile(s) %v that this verifier does not implement — a digest computed over a different preimage is NOT comparable to a re-derived one (see docs/normalized-module-hash-profile.md); supported: %v", [sort([p | some p in _byte_integrity_unsupported_profiles]), sort([q | some q, _ in data.supported_hash_profiles; not startswith(q, "_")])]) if {
+	input.byte_integrity.ran
+	input.byte_integrity.modified_count == 0
+	count(_byte_integrity_unexpected) == 0
+	count(_byte_integrity_unsupported_profiles) > 0
+}
+
 _byte_integrity_msg := sprintf("byte-integrity: verdict covers only %d of %d declared hashable modules — an under-scoped or stale verdict is not full coverage (cherry-picking guard)", [input.byte_integrity.checked, input.sbom.integrity.hashed]) if {
 	input.byte_integrity.ran
 	input.byte_integrity.modified_count == 0

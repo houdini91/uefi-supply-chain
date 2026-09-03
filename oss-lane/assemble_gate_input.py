@@ -127,14 +127,34 @@ def _module_type(c):
     return None
 
 
+def _hash_profile(c):
+    """The canonicalization profile a component's declared hash was computed under
+    (edk2:hashCanonicalForm), or None when the SBOM does not say. See
+    docs/normalized-module-hash-profile.md — the generator emits 'genfw-rebase-0' for a
+    normalized base-0 digest and 'raw-pe32' for the degraded, un-normalized fallback."""
+    for p in (c.get("properties") or []):
+        if p.get("name") == "edk2:hashCanonicalForm":
+            return p.get("value")
+    return None
+
+
 def integrity(sbom):
     mods = [c for c in (sbom.get("components") or []) if isinstance(c, dict) and c.get("type") != "library"]
     def hashed(c):
         h = c.get("hashes")
         return isinstance(h, list) and len(h) > 0
+    hashed_mods = [c for c in mods if hashed(c)]
+    # The distinct canonicalization profiles the SBOM's declared hashes were computed under.
+    # A verifier can only compare a declared hash to a re-derived one when it IMPLEMENTS that
+    # profile: 'genfw-rebase-0' and 'raw-pe32' are not comparable to each other, and an
+    # unrecognized profile is not comparable to anything. The gate refuses rather than
+    # silently comparing digests whose preimages were built differently.
+    profiles = sorted({p for p in (_hash_profile(c) for c in hashed_mods) if p})
     return {"hashable_total": len(mods),
-            "hashed": sum(1 for c in mods if hashed(c)),
+            "hashed": len(hashed_mods),
             "unhashed": [c.get("name") for c in mods if not hashed(c)],
+            "hash_profiles": profiles,
+            "hashed_without_profile": sum(1 for c in hashed_mods if _hash_profile(c) is None),
             "dxe_class_total": sum(1 for c in mods if _module_type(c) in DXE_CLASS)}
 
 

@@ -10,7 +10,8 @@
       ],
       "dxe_class_total": 122,
       "hash_profiles": [
-        "genfw-rebase-0"
+        "genfw-rebase-0",
+        "some-vendor-custom-canon"
       ],
       "hashed_without_profile": 0
     },

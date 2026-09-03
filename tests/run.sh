@@ -44,6 +44,7 @@ expect byte-integrity-modified.json deny
 expect byte-integrity-vacuous.json deny
 expect byte-integrity-undercoverage.json deny
 expect byte-integrity-unexpected-skip.json deny
+expect hash-profile-unsupported.json deny
 expect binary-hardening-missing-nx.json deny
 expect binary-hardening-vacuous.json deny
 expect binary-hardening-undercoverage.json deny
