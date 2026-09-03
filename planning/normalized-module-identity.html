@@ -1,0 +1,625 @@
+<title>Normalized Module Identity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#f4f7fb; --panel:#ffffff; --ink:#111722; --mut:#55627a; --dim:#5d6777;
+  --line:#dde4ee; --acc:#0d9488; --accsoft:#e2f5f4;
+  --ok:#128a43; --oksoft:#e4f6ea; --warn:#a9781a; --warnsoft:#f8efdb;
+  --bad:#d23a49; --badsoft:#fceaec;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --disp:"Archivo",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --shadow:0 1px 2px rgba(17,23,34,.05),0 8px 24px -12px rgba(17,23,34,.12);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0a0d12; --panel:#141a22; --ink:#e9eef6; --mut:#8b97a8; --dim:#8a95a8;
+    --line:#232c38; --acc:#3ddbd9; --accsoft:#0f2b30;
+    --ok:#3fd07a; --oksoft:#122417; --warn:#e2a83b; --warnsoft:#241d10;
+    --bad:#ff5d6a; --badsoft:#25151a;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0a0d12; --panel:#141a22; --ink:#e9eef6; --mut:#8b97a8; --dim:#8a95a8;
+  --line:#232c38; --acc:#3ddbd9; --accsoft:#0f2b30;
+  --ok:#3fd07a; --oksoft:#122417; --warn:#e2a83b; --warnsoft:#241d10;
+  --bad:#ff5d6a; --badsoft:#25151a;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+  line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:56px 28px 96px;
+  display:flex;flex-direction:column;gap:44px}
+.prose{max-width:70ch}
+h1,h2,h3{font-family:var(--disp);text-wrap:balance;margin:0;line-height:1.18}
+h1{font-size:clamp(2rem,4.4vw,3rem);font-weight:700;letter-spacing:-.022em}
+h2{font-size:1.42rem;font-weight:700;letter-spacing:-.012em}
+h3{font-size:1.02rem;font-weight:600;letter-spacing:-.004em}
+p{margin:0 0 .85em}
+p:last-child{margin-bottom:0}
+a{color:var(--acc)}
+code{font-family:var(--mono);font-size:.86em;background:var(--accsoft);
+  padding:.1em .36em;border-radius:3px;color:var(--ink)}
+pre{font-family:var(--mono);font-size:.8rem;line-height:1.55;background:var(--panel);
+  border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 6px 6px 0;
+  padding:14px 16px;overflow-x:auto;margin:0}
+pre code{background:none;padding:0;font-size:1em}
+.eyebrow{font-family:var(--mono);font-size:.7rem;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--acc);margin:0 0 .7em}
+
+header{border-bottom:1px solid var(--line);padding-bottom:32px;
+  display:flex;flex-direction:column;gap:14px}
+.meta{font-family:var(--mono);font-size:.74rem;color:var(--dim);
+  display:flex;flex-wrap:wrap;gap:8px 18px}
+
+section{display:flex;flex-direction:column;gap:18px}
+
+.verdict{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:26px 28px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:16px}
+.verdict .lede{font-size:1.12rem;line-height:1.55;max-width:64ch}
+.verdict strong{color:var(--acc)}
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:14px}
+.layer{border:1px solid var(--line);border-radius:8px;padding:16px 18px;background:var(--bg)}
+.layer h3{margin-bottom:6px}
+.layer p{font-size:.9rem;color:var(--mut);margin:0}
+.layer .tag{font-family:var(--mono);font-size:.68rem;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--acc);display:block;margin-bottom:8px}
+
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.87rem;min-width:600px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:.7rem;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--dim);background:var(--bg);white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.mono{font-family:var(--mono);font-size:.82em}
+
+.pill{display:inline-block;font-family:var(--mono);font-size:.68rem;font-weight:600;
+  padding:.16em .5em;border-radius:3px;white-space:nowrap;letter-spacing:.03em}
+.pill.no{background:var(--badsoft);color:var(--bad)}
+.pill.yes{background:var(--oksoft);color:var(--ok)}
+.pill.mid{background:var(--warnsoft);color:var(--warn)}
+
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px}
+.opt{border:1px solid var(--line);border-radius:10px;padding:20px;background:var(--panel);
+  display:flex;flex-direction:column;gap:12px}
+.opt.pick{border-color:var(--acc);box-shadow:var(--shadow)}
+.opt h3{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.opt ul{margin:0;padding-left:1.1em;font-size:.88rem;color:var(--mut);
+  display:flex;flex-direction:column;gap:5px}
+.opt li::marker{color:var(--dim)}
+.verdictline{font-size:.84rem;font-weight:600;padding-top:10px;border-top:1px dashed var(--line)}
+.verdictline.no{color:var(--bad)}
+.verdictline.yes{color:var(--ok)}
+.verdictline.mid{color:var(--warn)}
+
+.quote{border-left:3px solid var(--line);padding:2px 0 2px 18px;color:var(--mut);
+  font-size:.92rem;max-width:66ch}
+.quote cite{display:block;font-family:var(--mono);font-size:.72rem;font-style:normal;
+  color:var(--dim);margin-top:8px}
+
+.note{background:var(--warnsoft);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent);
+  border-radius:8px;padding:16px 18px;font-size:.9rem;max-width:72ch}
+.note strong{color:var(--warn)}
+
+.steps{display:flex;flex-direction:column;gap:10px}
+.step{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;
+  border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:var(--panel)}
+.step .k{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--acc);
+  background:var(--accsoft);padding:.25em .55em;border-radius:4px;white-space:nowrap}
+.step p{font-size:.89rem;margin:0;color:var(--mut)}
+.step p b{color:var(--ink);font-weight:600}
+
+footer{border-top:1px solid var(--line);padding-top:26px;font-size:.83rem;color:var(--dim);
+  max-width:72ch;display:flex;flex-direction:column;gap:10px}
+@media (prefers-reduced-motion:no-preference){
+  .verdict{animation:rise .5s ease-out both}
+  @keyframes rise{from{opacity:.55;transform:translateY(5px)}to{opacity:1;transform:none}}
+}
+
+/* field-level examples */
+.field{display:flex;flex-direction:column;gap:9px}
+.fieldhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.fieldhead h3{font-size:.98rem}
+.fieldnote{font-size:.85rem;color:var(--mut);max-width:70ch;margin:0}
+pre .add{display:block;background:var(--oksoft);
+  box-shadow:-16px 0 0 var(--oksoft),3px 0 0 var(--oksoft)}
+pre .ask{display:block;background:var(--warnsoft);
+  box-shadow:-16px 0 0 var(--warnsoft),3px 0 0 var(--warnsoft)}
+pre .cmt{color:var(--dim)}
+.join{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;
+  border:1px solid var(--line);border-radius:10px;padding:20px;background:var(--panel)}
+.join .side{display:flex;flex-direction:column;gap:7px;min-width:0}
+.join .side .lbl{font-family:var(--mono);font-size:.68rem;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--acc)}
+.join .side .chain{font-size:.85rem;color:var(--mut);line-height:1.5}
+.join .side .val{font-family:var(--mono);font-size:.74rem;color:var(--ink);
+  background:var(--bg);border:1px solid var(--line);border-radius:5px;
+  padding:7px 9px;overflow-x:auto;white-space:nowrap}
+.join .eq{font-family:var(--disp);font-size:1.5rem;font-weight:700;color:var(--acc);text-align:center}
+@media (max-width:720px){
+  .join{grid-template-columns:1fr}
+  .join .eq{transform:rotate(90deg);padding:4px 0}
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Spec strategy · uefi-supply-chain</p>
+  <h1>Normalized Module Identity</h1>
+  <p class="prose" style="font-size:1.06rem;color:var(--mut);margin:0">
+    Where a rebase-0 module digest belongs in CycloneDX, SPDX 3.0, coSWID and in-toto — and why
+    “just define a <code>sha256-norm</code> algorithm” is right in exactly one of them.
+  </p>
+  <div class="meta">
+    <span>2026-09-03</span><span>anchor D = sha256:7965c317…62fb8f37</span>
+    <span>OVMF_CODE.fd · 122/122 reconciled</span><span>drafted, nothing filed</span>
+  </div>
+</header>
+
+<section>
+  <div class="verdict">
+    <p class="eyebrow" style="margin:0">The answer</p>
+    <p class="lede">
+      The normalized digest is an <strong>identity</strong>, not a hash algorithm — everywhere it is a
+      catalogue attribute. It <strong>is</strong> an algorithm-shaped key in exactly one place: the
+      in-toto digest map, where equality-matching is the whole point. Both of your instincts were
+      right; they apply to different layers.
+    </p>
+    <div class="split">
+      <div class="layer">
+        <span class="tag">Catalogue layer</span>
+        <h3>SBOM formats</h3>
+        <p>CycloneDX, SPDX 3.0, coSWID. A digest here <em>describes</em> a component. Model the
+        normalization as an identifier or a class; leave the algorithm slot a plain primitive.
+        Eight independent precedents, zero exceptions.</p>
+      </div>
+      <div class="layer">
+        <span class="tag">Matching layer</span>
+        <h3>in-toto / your VSA</h3>
+        <p><code>DigestSet</code> is a flat equality map. in-toto <em>explicitly rejected</em> a
+        separate “kind” field — citing Authenticode — because it would complicate match semantics.
+        Here a new key name is the blessed pattern.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">The question</p>
+  <h2>Why not just define <code>sha256-norm</code> and use the normal hash field?</h2>
+  <div class="prose">
+    <p>
+      Because both SBOM formats close the door mechanically, and the registry that coSWID depends on
+      says the preimage is out of its scope. This isn’t taste — it’s three validators and one RFC.
+    </p>
+  </div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Format</th><th>Algorithm slot</th><th>Room for a qualifier?</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>CycloneDX 1.6</b></td>
+          <td class="mono">hash-alg: closed enum, 12 values</td>
+          <td class="mono">hash.additionalProperties: false<br>properties: ["alg","content"]</td>
+          <td><span class="pill no">schema fails</span></td>
+        </tr>
+        <tr>
+          <td><b>SPDX 3.0.1</b></td>
+          <td class="mono">HashAlgorithm: SHACL sh:in, 22 values</td>
+          <td class="mono">IntegrityMethod has one property: comment</td>
+          <td><span class="pill no">SHACL + JSON fail</span></td>
+        </tr>
+        <tr>
+          <td><b>coSWID / RFC 9393</b></td>
+          <td class="mono">hash-alg-id → IANA NI registry</td>
+          <td class="mono">hash-entry = [alg, value] — fixed array</td>
+          <td><span class="pill no">MUST NOT</span></td>
+        </tr>
+        <tr>
+          <td><b>in-toto DigestSet</b></td>
+          <td class="mono">open map; gitBlob, dirHash, gitTree…</td>
+          <td class="mono">“kind” field considered and rejected</td>
+          <td><span class="pill yes">this is the way</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="prose">
+    <p>Two details are worse than they look. In SPDX the JSON-LD context puts a
+    <em>scoped</em> <code>@vocab</code> on <code>algorithm</code>, so
+    <code>"algorithm":"sha256Norm"</code> silently expands into SPDX’s own namespace
+    (<code>…/terms/Core/HashAlgorithm/sha256Norm</code>) before failing <code>sh:in</code> — you cannot
+    even <em>express</em> a foreign algorithm IRI through the shorthand. And in coSWID,
+    <code>hash-entry</code> is a fixed two-element array, so nothing can ride inside it at all:</p>
+  </div>
+  <pre><code>hash-entry = [ hash-alg-id: int, hash-value: bytes ]      ; fixed — nothing fits inside
+
+file-entry = {
+  filesystem-item, ? size =&gt; uint, ? file-version =&gt; text,
+  ? hash =&gt; hash-entry,
+  * $$file-extension,          &lt;-- the only door, and it is a real one
+  global-attributes,
+}</code></pre>
+
+  <div class="quote">
+    “Other than in the aforementioned special case where public keys are used, we do not specify the
+    hash function input here. <b>Other specifications are expected to define this.</b>”
+    <cite>RFC 6920 §2 — the IANA Named Information Hash Algorithm Registry</cite>
+  </div>
+  <div class="prose">
+    <p>That is the registry underneath coSWID putting the preimage explicitly outside its remit. All
+    20 entries transform the <em>output</em> (truncation, XOF parameters); not one transforms the
+    input. RFC 6920 even had its own canonicalization rule — hash a public key as an X.509
+    <code>SubjectPublicKeyInfo</code> — and put it in prose rather than mint an
+    <code>spki-sha-256</code> entry. Registration is Expert Review, so the realistic response is
+    “define the normalization in your spec and use <code>sha-256</code>.”</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Evidence</p>
+  <h2>How the ecosystem has answered this before</h2>
+  <div class="prose">
+    <p>Every one of these is a digest over a <em>transformed</em> preimage — structurally your case.
+    Authenticode is the closest analogue of all: a PE hash that deliberately excludes the checksum
+    and certificate table, exactly the kind of surgery <code>canon_unrebase()</code> performs.</p>
+  </div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Prior art</th><th>Transformation</th><th>Modeled as</th><th></th></tr></thead>
+      <tbody>
+        <tr><td><b>OmniBOR gitoid</b></td><td>git object framing + CRLF→LF</td><td>URI scheme · SPDX <code>ContentIdentifierType</code> · CDX <code>omniborId</code></td><td><span class="pill no">not an alg</span></td></tr>
+        <tr><td><b>SWHID</b></td><td>git object framing, SHA-1</td><td>identifier format · ISO/IEC 18670:2025 · same two homes</td><td><span class="pill no">not an alg</span></td></tr>
+        <tr><td><b>Authenticode PE</b></td><td>excludes checksum + cert table</td><td>plain NIST OID + separate context OIDs</td><td><span class="pill no">not an alg</span></td></tr>
+        <tr><td><b>Mach-O cdhash</b></td><td>hash of the CodeDirectory blob</td><td>plain <code>SEC_OID_SHA256</code>, structure in a parallel array</td><td><span class="pill no">not an alg</span></td></tr>
+        <tr><td><b>SPDX PackageVerificationCode</b></td><td>sorted, exclusion-filtered digest</td><td>separate class, reuses the plain algorithm enum</td><td><span class="pill no">not an alg</span></td></tr>
+        <tr><td><b>STIX imphash</b></td><td>PE import table, not file bytes</td><td>dedicated property — by the same spec that <em>does</em> put ssdeep in its alg enum</td><td><span class="pill no">not an alg</span></td></tr>
+        <tr><td><b>Nix fixed-output</b></td><td>NAR / git canonical serialization</td><td><code>outputHashAlgo</code> <b>+ separate</b> <code>outputHashMode</code></td><td><span class="pill no">not an alg</span></td></tr>
+        <tr><td><b>Reproducible builds</b></td><td>normalize the artifact pre-hash</td><td>no identifier at all — plain <code>Checksums-Sha256</code></td><td><span class="pill no">not an alg</span></td></tr>
+        <tr><td><b>in-toto DigestSet</b></td><td>git framing; <code>dirHash</code> sorted manifest</td><td><b>new algorithm identifiers</b> — <code>gitBlob</code>, <code>dirHash</code>, <code>gitTree</code></td><td><span class="pill yes">is an alg</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
+    <p><b>Eight to one</b> — and the one dissenter documents its own reasoning. in-toto issue #28 raised
+    precisely your question, naming Authenticode, and rejected a separate <code>kind</code> field to avoid
+    “needing any fancy comparison logic.” That rationale is specific to a map whose job is equality
+    matching. An SBOM hash is a catalogue attribute, so it doesn’t carry over — which is why the split
+    at the top of this page is convention, not contradiction.</p>
+    <p>Worth knowing when someone pushes back: SPDX’s own architect proposed a per-scheme
+    <code>IntegrityMethod</code> subclass for gitoid and then withdrew it —
+    <em>“I do not believe that throwing new properties on for each new approach is a tenable or scalable
+    solution”</em> — in favour of one class plus an extensible vocabulary “which can be expanded in the
+    future, with no breaking changes.” Nobody ever proposed gitoid as a <code>HashAlgorithm</code> value.
+    That option was never on the table.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Options</p>
+  <h2>Three honest routes</h2>
+  <div class="opts">
+    <div class="opt">
+      <h3>A · New algorithm id <span class="pill no">rejected</span></h3>
+      <ul>
+        <li><b>+</b> Simplest mental model; nothing new to invent</li>
+        <li><b>+</b> Distinct key sidesteps protobom’s one-hash-per-algorithm collision for free</li>
+        <li><b>−</b> Fails CycloneDX and SPDX schema validation outright</li>
+        <li><b>−</b> IANA would redirect on scoping, not crypto, grounds</li>
+        <li><b>−</b> Adding one CDX enum value took <b>~16 months</b> (Streebog, 2024-06 → 2025-10)</li>
+        <li><b>−</b> SPDX has added exactly one value in three years, as an oversight fix</li>
+      </ul>
+      <p class="verdictline no">Dead in the SBOM layer. Correct in in-toto.</p>
+    </div>
+    <div class="opt">
+      <h3>B · Method qualifier <span class="pill mid">overbuilt</span></h3>
+      <ul>
+        <li><b>+</b> Fully general; separates primitive from preimage cleanly</li>
+        <li><b>−</b> Nowhere to put it: CDX <code>additionalProperties:false</code>, SPDX
+          <code>IntegrityMethod</code> has only <code>comment</code></li>
+        <li><b>−</b> Needs new fields in four places at once</li>
+        <li><b>−</b> A third-party SPDX subclass <b>passes SHACL but fails the JSON schema</b> — it
+          looks like it works, then doesn’t</li>
+      </ul>
+      <p class="verdictline mid">Where I was drifting. The ecosystem never chose it.</p>
+    </div>
+    <div class="opt pick">
+      <h3>C · Named identity <span class="pill yes">recommended</span></h3>
+      <ul>
+        <li><b>+</b> Exactly what gitoid, SWHID, cdhash and Authenticode all did</li>
+        <li><b>+</b> Each format already has the slot — no new fields anywhere</li>
+        <li><b>+</b> The definition lives in <em>your</em> profile doc, so nothing ossifies into a spec</li>
+        <li><b>+</b> Extensible vocabularies are designed to grow “with no breaking changes”</li>
+        <li><b>−</b> Needs one small versioned profile document written first</li>
+        <li><b>−</b> Still a vocabulary entry per format, on each one’s own clock</li>
+      </ul>
+      <p class="verdictline yes">One identity, expressed in each layer’s own idiom.</p>
+    </div>
+  </div>
+  <div class="note">
+    <strong>The zero-cost option is still live.</strong> Nothing breaks today if you document
+    <code>genfw-rebase-0</code> as a convention and change no spec: the gate is green, 122/122
+    reconciles, the same-GUID swap DENYs. The injured party is a third party producing a normalized
+    hash for someone else’s verifier without coordination — and that party does not exist yet. Route C
+    is worth doing because you want the ecosystem to have the slot, not because your pipeline needs it.
+    Say that plainly rather than manufacturing urgency.
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">The proposal</p>
+  <h2>One identity, four expressions</h2>
+  <div class="prose">
+    <p>Define the transformation once, in a short versioned profile you own — preimage
+    (<code>EFI_SECTION_PE32</code> payload, section header stripped), the un-rebase
+    (HIGHLOW/DIR64 only, anything else fails closed), the three zeroed header fields as
+    <em>byte patches</em> rather than a re-serialize, then SHA-256. Publish test vectors. Then carry
+    the resulting identity in whatever slot each format already provides.</p>
+  </div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Layer</th><th>Carrier</th><th>Ask</th><th>Cost</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>CycloneDX</b></td>
+          <td class="mono">properties[] today →<br>identifiers[].scheme in 2.0</td>
+          <td>Nothing now. A scheme value against <code>2.0-dev</code> later.</td>
+          <td><span class="pill yes">zero</span></td>
+        </tr>
+        <tr>
+          <td><b>SPDX 3.0</b></td>
+          <td class="mono">ContentIdentifierType</td>
+          <td>One vocabulary entry beside <code>gitoid</code>/<code>swhid</code>.
+            <b>3.1-rc2 window closes 2026-09-27.</b></td>
+          <td><span class="pill mid">1 PR</span></td>
+        </tr>
+        <tr>
+          <td><b>coSWID</b></td>
+          <td class="mono">$$file-extension /<br>$$evidence-extension</td>
+          <td>A sibling key beside <code>hash</code>. Negative index to prototype;
+            32768+ (“Specification Required”) to publish.</td>
+          <td><span class="pill mid">Richard’s call</span></td>
+        </tr>
+        <tr>
+          <td><b>in-toto / VSA</b></td>
+          <td class="mono">DigestSet key</td>
+          <td>Mint the key. This is the sanctioned pattern here.</td>
+          <td><span class="pill yes">yours already</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
+    <p>The CycloneDX row is the one that changes strategy: there is no 1.8. The next version is
+    <b>2.0</b>, and issue #935 consolidates <code>purl</code>, <code>cpe</code>,
+    <code>omniborId</code> and <code>swhid</code> into a generic <code>identifiers[]</code> array.
+    A new top-level field proposed today would be deleted by 2.0; a scheme value would not. Keep using
+    <code>edk2:hashCanonicalForm</code> in <code>properties[]</code> in the meantime — it already works,
+    on all 122 modules.</p>
+    <p>For SPDX the ask is small and precedented, and there is a real deadline. For coSWID the ask is
+    genuinely Richard’s to shape — it is his format’s extension socket and his <code>uSwidEvidence</code>
+    measured hash from #100 that it sits beside. That is the one place to ask rather than propose.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Concretely</p>
+  <h2>The fields, filled in</h2>
+  <div class="prose">
+    <p>
+      Every value below is real, taken from <code>inputs/sbom.cdx.json</code> and
+      <code>inputs/byte-integrity.json</code>. <b>PeiCore</b> is the honest example: a
+      <code>PEI_CORE</code> module that is <em>rebased</em> when placed in flash
+      (<code>ImageBase 0x830140</code>, <code>.reloc</code> at RVA <code>0xDB00</code>), so its
+      as-found bytes in the image do <em>not</em> hash to what the SBOM declares. Only the
+      normalized identity matches — which is exactly why a plain digest comparison is not enough,
+      and why the identity needs somewhere to live.
+    </p>
+  </div>
+
+  <div class="join">
+    <div class="side">
+      <span class="lbl">Declared · at build</span>
+      <p class="chain">edk2 <code>-Y SBOM</code> → GenFw <code>.efi</code>, already base-0</p>
+      <div class="val">uefipe:1:rebase0:sha256:1348ff9c…681051</div>
+    </div>
+    <div class="eq">=</div>
+    <div class="side">
+      <span class="lbl">Observed · from the image</span>
+      <p class="chain">CHIPSEC <code>uefi decode</code> → un-rebase → SHA-256</p>
+      <div class="val">uefipe:1:rebase0:sha256:1348ff9c…681051</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <div class="fieldhead">
+      <h3>CycloneDX 1.6 — shipping today</h3>
+      <span class="pill yes">no spec change</span>
+    </div>
+    <p class="fieldnote">The hash <em>is</em> already the normalized value; the property is what says
+      so. This runs on all 122 hashed modules right now.</p>
+<pre><code>{
+  "bom-ref": "52C05B14-0B98-496c-BC3B-04B50211D680",
+  "name": "PeiCore",
+  "hashes": [
+    { "alg": "SHA-256",
+      "content": "1348ff9c695f80b31915aa9f159aa3490121c9af446438feb742f8e78e681051" }
+  ],
+  "properties": [
+    { "name": "edk2:moduleType",        "value": "PEI_CORE" },
+<span class="add">    { "name": "edk2:hashCanonicalForm", "value": "genfw-rebase-0" }   <span class="cmt">&lt;-- the method, today</span></span>
+  ]
+}</code></pre>
+  </div>
+
+  <div class="field">
+    <div class="fieldhead">
+      <h3>CycloneDX 2.0 — where it should move</h3>
+      <span class="pill mid">shape unverified</span>
+    </div>
+    <p class="fieldnote">Consolidates <code>purl</code>, <code>cpe</code>, <code>omniborId</code> and
+      <code>swhid</code> into one array (issue #935). <b>Treat this shape as indicative only</b> — the
+      <code>2.0-dev</code> schema returns 404 today, so the exact key names are not yet pinned. The
+      strategic point holds regardless: propose a <em>scheme value</em>, not a new top-level field that
+      2.0 would delete.</p>
+<pre><code>"identifiers": [
+  { "scheme": "purl",   "value": "pkg:generic/edk2/PeiCore" },
+<span class="ask">  { "scheme": "uefipe", "value": "uefipe:1:rebase0:sha256:1348ff9c…681051" }</span>
+]</code></pre>
+  </div>
+
+  <div class="field">
+    <div class="fieldhead">
+      <h3>SPDX 3.0.1 — one vocabulary entry</h3>
+      <span class="pill mid">the ask · rc2 closes 2026-09-27</span>
+    </div>
+    <p class="fieldnote">Field names verified against the official 3.0.1 JSON schema.
+      <code>software_contentIdentifier</code> is an array on <code>SoftwareArtifact</code>;
+      <code>software_contentIdentifierValue</code> is an <code>anyURI</code>. The entire ask is a third
+      value in an enum that today reads exactly <code>["gitoid","swhid"]</code> — the same slot gitoid
+      and SWHID already use for a transformed-preimage digest. <code>verifiedUsing</code> keeps the
+      plain primitive, untouched.</p>
+<pre><code>{
+  "type": "software_File",
+  "name": "PeiCore",
+  "verifiedUsing": [
+    { "type": "Hash", "algorithm": "sha256",
+      "hashValue": "1348ff9c…681051" }          <span class="cmt">&lt;-- unchanged, still a plain sha256</span>
+  ],
+<span class="ask">  "software_contentIdentifier": [
+    { "type": "software_ContentIdentifier",
+      "software_contentIdentifierType": "uefipe",     <span class="cmt">&lt;-- enum: ["gitoid","swhid"] today</span>
+      "software_contentIdentifierValue":
+        "uefipe:1:rebase0:sha256:1348ff9c…681051" }
+  ]</span>
+}</code></pre>
+  </div>
+
+  <div class="field">
+    <div class="fieldhead">
+      <h3>coSWID — the extension socket</h3>
+      <span class="pill mid">Richard’s call</span>
+    </div>
+    <p class="fieldnote">Nothing can go inside <code>hash-entry</code> (fixed array), and
+      <code>hash-alg-id</code> stays <code>1</code> = <code>sha-256</code> — RFC 9393 says other
+      algorithms <em>MUST NOT</em> be used. So the method rides as a sibling key via
+      <code>$$file-extension</code>. A negative index is private-use and needs no registration, which
+      makes it the right way to prototype before asking for anything.</p>
+<pre><code>file-entry = {
+  fs-name: "PeiCore",
+  hash: [ 1, h'1348ff9c…681051' ],   <span class="cmt">; alg-id 1 = sha-256, unchanged</span>
+<span class="ask">  ? -1 =&gt; "uefipe:1:rebase0",        ; $$file-extension — private use (-256..-1)</span>
+}</code></pre>
+  </div>
+
+  <div class="field">
+    <div class="fieldhead">
+      <h3>in-toto DigestSet — your VSA</h3>
+      <span class="pill yes">already yours</span>
+    </div>
+    <p class="fieldnote">The one layer where your original instinct is the blessed pattern: a new key
+      name beside <code>sha256</code>, exactly as <code>gitBlob</code> and <code>dirHash</code> do. No
+      registration, no permission — in-toto asks only that a new algorithm document how its value is
+      encoded.</p>
+<pre><code>"subject": [{
+  "name": "PeiCore",
+  "digest": {
+    "sha256":  "…",                              <span class="cmt">&lt;-- as-found, differs (rebased)</span>
+<span class="add">    "uefipe1": "1348ff9c…681051"                 <span class="cmt">&lt;-- normalized identity</span></span>
+  }
+}]</code></pre>
+  </div>
+
+  <div class="note">
+    <strong><code>uefipe</code> is a placeholder.</strong> The scheme name, its version segment and
+    whether the transformation belongs in the name at all are community decisions, not ones to settle
+    unilaterally — gitoid chose <code>gitoid:blob:sha256:…</code> and SWHID chose
+    <code>swh:1:cnt:…</code>, so there is precedent for both styles. What matters is that the value is
+    a URI (SPDX requires <code>anyURI</code>) and that the profile document defining the transformation
+    is what the identifier points at.
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">The other half</p>
+  <h2>How this connects to CHIPSEC</h2>
+  <div class="prose">
+    <p>
+      These are not two efforts. CHIPSEC issue <b>#2843</b> is the <em>observed</em> end of the same
+      identity that the SBOM work carries on the <em>declared</em> end — one profile, computed at build
+      and recomputed from the shipped image, compared. Framing the CHIPSEC PR as “emit the normalized
+      module identity” rather than “add a hash variant” is both a stronger pitch and a smaller
+      commitment: the definition lives in the profile document, so CHIPSEC implements a spec rather
+      than becoming one. That directly answers Richard’s ossification objection — the normal form does
+      not get frozen into anyone’s code, in either project.
+    </p>
+    <p>
+      Nothing about CHIPSEC waits on the SBOM work, or the reverse. <code>scan_image</code> already has
+      its own baseline — a golden <code>efilist.json</code> from <code>generate</code> — and today that
+      loop is layout-bound, because modules are hashed as-found after relocation. A normalized value
+      fixes CHIPSEC’s own workflow with no SBOM in the picture, which is why <code>npmitche</code> could
+      say <em>“I like the idea of simply adding a <code>sha256_norm</code> field”</em> without asking what
+      consumes it. The SBOM alignment is the second motivation, not the load-bearing one. Both threads
+      need the profile; neither needs the other.
+    </p>
+    <p>
+      One sequencing constraint is real and it is technical, not strategic: write the profile with
+      byte-patch normalization <em>before</em> the CHIPSEC PR ships. Merging a parse-and-re-serialize
+      normal form into a widely deployed tool would promote pefile-equivalent serializer behaviour into
+      the de-facto definition — ossification made worse, not better, and the one move here that is hard
+      to reverse.
+    </p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Next</p>
+  <h2>What to do, in dependency order</h2>
+  <div class="steps">
+    <div class="step"><span class="k">now</span><p><b>Fix the #10507 link.</b> Your public edk2 comment
+      points at fork PR #6, which you closed two days after posting. PR #7 merged to the fork’s master
+      on 2026-08-07 and carries the generator. Two minutes; currently wrong in public.</p></div>
+    <div class="step"><span class="k">shared</span><p><b>Write the profile.</b> Versioned,
+      producer-neutral, byte-patch normalization, preimage pinned (including the 8-byte extended
+      section header, which OVMF never exercises), plus test vectors: direct, the 11 XIP, no-reloc-table,
+      unsupported-reloc, extended-header. Feeds both threads.</p></div>
+    <div class="step"><span class="k">chipsec</span><p><b>Ship #2843.</b> Rebase onto post-#2842
+      <code>chipsec2</code>, drop the now-dead import shim, port the profile in stdlib (no
+      <code>pefile</code>), reply to <code>npmitche</code> confirming the field shape, open the PR.</p></div>
+    <div class="step"><span class="k">richard</span><p><b>Reply to OSF #3</b> — owed ~2026-09-10 by your
+      own “about three weeks.” Answer his one blocker with the four rows above, concede explicitly that
+      the spec should not define the normalization, and ask where a method key belongs beside
+      <code>uSwidEvidence</code>. Register for the UEFI Forum SBOM call.</p></div>
+    <div class="step"><span class="k">spdx</span><p><b>ContentIdentifierType entry</b> if you want the
+      SPDX row real — the 3.1-rc2 window closes 2026-09-27.</p></div>
+    <div class="step"><span class="k">hold</span><p><b>protobom.</b> The finding is real —
+      <code>map&lt;int32,string&gt; hashes</code> means one hash per algorithm per node and no method
+      dimension, and <code>unserializer_spdx3.go:239</code> silently discards any non-<code>Hash</code>
+      <code>IntegrityMethod</code>. But filing now front-runs a design decision you haven’t made.</p></div>
+    <div class="step"><span class="k">don’t</span><p><b>IANA Named Information registry.</b> Out of
+      scope by RFC 6920 §2. And <b>don’t</b> claim SPDX “loses the profile” — that is your own
+      <code>-Y SPDX</code> generator not emitting it, not an ecosystem gap.</p></div>
+  </div>
+</section>
+
+<footer>
+  <p><b>Verified first-hand:</b> the CycloneDX 1.6 schema (12-value enum,
+  <code>additionalProperties:false</code>, <code>omniborId</code>/<code>swhid</code>); RFC 9393’s CDDL and
+  IANA procedures; RFC 6920 §2 and all 20 registry entries; the SPDX 3.0.1 SHACL/OWL model, empirically
+  validated with <code>pyshacl</code> and <code>jsonschema</code>; protobom’s proto and both SPDX-3
+  serializers; <code>inputs/sbom.spdx.json</code> creators.</p>
+  <p><b>Unverified / inference:</b> how a Designated Expert would actually rule on an NI registration
+  (no decision archive exists); whether a <code>$$file-extension</code> key must draw on the CoSWID Items
+  registry at all; the exact naming for the identity scheme, which is a community decision, not one to
+  settle unilaterally. Confirm every spec citation against its primary source before anything is posted.</p>
+  <p style="color:var(--mut)"><b>Nothing here has been filed, posted or sent.</b></p>
+</footer>
+
+</div>
