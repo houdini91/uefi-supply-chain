@@ -102,6 +102,20 @@ Any other `OPTIONAL_HEADER` magic: **fail — emit no value.**
 `TimeDateStamp` and `CheckSum` are zeroed because edk2's `GenFw` already zeroes them when producing
 the build-side `.efi`; normalizing both sides to the same state is what makes the comparison fair.
 
+> **These two are a no-op on the OVMF reference, and they are still required.** Measured
+> 2026-09-03: across all 122 modules, `TimeDateStamp` and `CheckSum` are already `0`, while
+> `ImageBase` is non-zero on exactly the 11 rebased ones. So an implementation that skips these two
+> fields still reproduces every vector here — and is still non-conformant.
+>
+> The reason is the point of the whole profile. `TimeDateStamp` is build-incidental: leave it in the
+> preimage and rebuilding identical source at a different time yields a different digest, which
+> destroys the layout-independent identity this exists to provide. It happens not to bite on edk2
+> because GenFw already zeroes it. It would bite on a producer that doesn't.
+>
+> This is exactly the kind of divergence a conformance suite misses, since the vectors cannot
+> distinguish the two implementations. Stated here so it is caught by reading rather than by a
+> mismatch two years from now.
+
 ### 4.3 Digest
 
 `SHA-256` over the resulting bytes. Lowercase hex.
