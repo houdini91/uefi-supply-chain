@@ -8,11 +8,12 @@ This document exists so that the normalization does **not** have to be defined b
 specification, and does not have to be inferred from any one implementation's source. It is
 deliberately small, versioned, and owned by nobody's format.
 
-> **Naming is not settled.** The identifier `uefi-pe-rebase0/v1` used below is a **placeholder**.
-> Whether the scheme is named for the transformation, carries a version segment, or follows
-> `gitoid:blob:sha256:…` versus `swh:1:cnt:…` style is a community decision. What is settled is that
-> the value must be expressible as a URI, because SPDX 3.0's `contentIdentifierValue` is an
-> `anyURI`.
+> **The identifier is settled here, not in the ecosystem.** Within this document the profile is
+> `uefi-pe-rebase0/v1`, and §5 fixes exactly which strings a consumer accepts. Whether the wider
+> ecosystem adopts that spelling — and whether it prefers a `gitoid:blob:sha256:…` or
+> `swh:1:cnt:…` style — is a community decision this document does not pre-empt. The one hard
+> constraint is that the value be expressible as a URI, because SPDX 3.0's
+> `contentIdentifierValue` is an `anyURI`.
 
 ---
 
@@ -67,20 +68,61 @@ expected to reproduce.
 
 ### 4.1 Reverse the relocation fixups
 
-Let `B` = `OPTIONAL_HEADER.ImageBase`.
+Let `B` = `OPTIONAL_HEADER.ImageBase`. If `B == 0` there is nothing to reverse; go to §4.2.
 
-If `B != 0` **and** a base-relocation directory is present, then for each relocation entry, at the
-file offset corresponding to its RVA:
+**Locating the section table.** `NumberOfSections` is the `uint16` at `fh + 2` and
+`SizeOfOptionalHeader` the `uint16` at `fh + 16`. The table begins at `oh + SizeOfOptionalHeader`
+and each entry is 40 bytes, with `VirtualSize` at `+8`, `VirtualAddress` at `+12`, `SizeOfRawData`
+at `+16` and `PointerToRawData` at `+20`.
+
+**Mapping an RVA to a file offset.** Find the first section for which
+`VirtualAddress ≤ rva < VirtualAddress + max(VirtualSize, SizeOfRawData)`; the offset is
+`PointerToRawData + (rva − VirtualAddress)`. An RVA matching no section is a failure (below).
+Where sections overlap, the first match in table order wins.
+
+> This mapping is the single most likely source of divergence between two implementations, and PE
+> parsers differ on it in practice. It is pinned here rather than left to "the file offset
+> corresponding to its RVA".
+
+**Locating the relocation directory.** `NumberOfRvaAndSizes` is the `uint32` at `oh + 92` (PE32) or
+`oh + 108` (PE32+); the data directory array begins at `oh + 96` / `oh + 112`. The base-relocation
+directory is index **5**, an 8-byte pair `{VirtualAddress: uint32, Size: uint32}`.
+
+The directory is **absent** — meaning there is genuinely nothing to reverse — if and only if
+`NumberOfRvaAndSizes ≤ 5`, or its `VirtualAddress` is `0`, or its `Size` is `0`. In that case
+§4.2 alone canonicalizes the image: being placed at a load address changed only the `ImageBase`
+header field.
+
+**Walking the directory.** From the directory's first byte for exactly `Size` bytes, a sequence of
+blocks:
+
+```
+block  = { PageRVA: uint32, BlockSize: uint32, entries… }
+entry  = uint16 ; type = entry >> 12 , offset = entry & 0x0FFF
+target = PageRVA + offset          ; entry count = (BlockSize − 8) / 2
+```
+
+A `BlockSize` of `0` ends the walk. Then for each entry, at the file offset its target RVA maps to:
 
 | Type | Name | Action |
 |---:|---|---|
-| `0` | `IMAGE_REL_BASED_ABSOLUTE` | skip — padding, carries no fixup |
+| `0` | `IMAGE_REL_BASED_ABSOLUTE` | skip — padding, carries no fixup, **including when its offset is non-zero** |
 | `3` | `IMAGE_REL_BASED_HIGHLOW` | read LE `uint32` *v*, write `(v − B) mod 2³²` |
 | `10` | `IMAGE_REL_BASED_DIR64` | read LE `uint64` *v*, write `(v − B) mod 2⁶⁴` |
 | any other | — | **fail — emit no value** |
 
-If `B != 0` and there is **no** relocation directory, there is nothing to reverse: being placed at a
-load address changed only the `ImageBase` header field, and §4.2 alone canonicalizes the image.
+**Failure cases — all emit no value, never a partially-normalized image.** An unsupported
+relocation type; a `BlockSize` below 8 or extending past the directory; a directory extending past
+the end of the image; an RVA (of the directory or of any fixup target) that maps to no section; a
+fixup target whose 4 or 8 bytes would run past the end of the image; a section table extending past
+the end of the image.
+
+> **A declared directory that cannot be parsed is a failure, not an absence.** An implementation
+> that delegates parsing to a library must check this explicitly: some libraries discard a
+> relocation directory they dislike without raising, and the resulting header-only normalization is
+> indistinguishable from a module that genuinely has no relocations — and silently wrong for one
+> that does. This exact fault was found in this repo's own pefile-based implementation by
+> cross-checking it against `producers/reconcile/profile_ref.py`.
 
 > A module whose relocation table was *stripped after* rebasing will not reproduce its declared
 > digest. That is the intended behaviour — it is reported as a mismatch, never silently accepted.
@@ -90,6 +132,10 @@ load address changed only the `ImageBase` header field, and §4.2 alone canonica
 Offsets, all little-endian. `e_lfanew` is the `uint32` at file offset `0x3C`; the PE signature
 `"PE\0\0"` is 4 bytes at `e_lfanew`; the COFF `FILE_HEADER` follows at `fh = e_lfanew + 4` and is 20
 bytes; the `OPTIONAL_HEADER` follows at `oh = fh + 20`.
+
+**Fail — emit no value** if the image is shorter than `0x40` bytes, if `e_lfanew` leaves no room for
+the signature and COFF header, if there is no `"PE\0\0"` at `e_lfanew`, or if the optional header
+does not reach `oh + 68` (the last byte this section reads).
 
 | Field | Offset | Size |
 |---|---|---|
@@ -122,12 +168,27 @@ the build-side `.efi`; normalizing both sides to the same state is what makes th
 
 ## 5. Profile values
 
-A producer declaring a digest **MUST** state which profile produced it. Two values are defined:
+A producer declaring a digest **MUST** state which profile produced it.
 
-| Value | Meaning |
-|---|---|
-| `genfw-rebase-0` | The full profile above. The declared digest is over a GenFw-normalized, base-0 image; a verifier reproduces it by applying §4 to the shipped bytes. |
-| `raw-pe32` | **Degraded.** The digest is over the PE32 payload with **no** normalization. Emitted when a producer cannot obtain a base-0 form. It is *not* comparable to a `genfw-rebase-0` digest. |
+| Identifier | Status | Meaning |
+|---|---|---|
+| **`uefi-pe-rebase0/v1`** | **canonical** | The full profile above. A verifier reproduces the digest by applying §4 to the shipped bytes. |
+| `genfw-rebase-0` | **alias** | What the edk2 `-Y SBOM` generator emits today, in `edk2:hashCanonicalForm`, for this same profile. Accept as equivalent to `uefi-pe-rebase0/v1`. Retained because it is already present in shipped SBOMs; new producers should emit the canonical form. |
+| `raw-pe32` | degraded | The digest is over the PE32 payload with **no** normalization. Emitted when a producer cannot obtain a base-0 form. **Not** comparable to either of the above. |
+
+**Versioning.** The version is part of the identifier; there is no unversioned form. A consumer
+**MUST** match identifiers exactly and **MUST NOT** treat `uefi-pe-rebase0` as equal to, or a prefix
+of, `uefi-pe-rebase0/v1`. A change to §3 or §4 that alters any digest requires a new version.
+
+**Absence.** A hash carrying **no** profile identifier **MUST** be read as the digest of the bytes
+**as found**, with no transformation applied — i.e. as `raw-pe32`. It **MUST NOT** be read as
+"unknown, not comparable".
+
+> This is not a stylistic choice. Every SBOM published before this profile existed carries hashes
+> with no identifier, and they are all plain digests of the bytes. Reading absence as "unknown"
+> would retroactively invalidate all of them. The obligation therefore falls on the producer: a
+> producer that applies **any** transformation before hashing **MUST** record the identifier.
+> That version is also testable, which "a consumer MUST NOT compare" is not.
 
 > A consumer **MUST NOT** compare digests across differing profile values, and **MUST NOT** treat
 > such a comparison as a match or a mismatch — it is *not comparable*, which is a third outcome.
@@ -143,12 +204,42 @@ A producer declaring a digest **MUST** state which profile produced it. Two valu
 > be re-cut, so it belongs with the CI-builds-real-firmware work
 > (`planning/CI-REAL-EVIDENCE.md`), which rebuilds regardless.
 
-## 6. Conformance vectors
+## 6. Conformance
 
-[`normalized-module-hash-vectors.json`](normalized-module-hash-vectors.json) carries one entry per
-module of the OVMF reference image, each with the **as-found** digest and the **normalized** digest.
-An implementation is conformant if, given the same as-found bytes, it reproduces every
-`sha256_norm`.
+An implementation is conformant if, **whenever it emits a value, that value is correct**.
+
+Emitting **no value** is always permitted. An implementation may decline any input it cannot parse
+to its own satisfaction — parsers differ in strictness, and a stricter one is not less conformant.
+What is never permitted is emitting a value that *differs* from the reference for the same input.
+
+> This matters because it is already the observed situation. This repo's `canon_unrebase` (built on
+> `pefile`) and `profile_ref.py` (a dependency-free parser) both reproduce all 122 modules of the
+> OVMF reference and agree on every one — but on deliberately awkward synthetic inputs, `pefile`
+> declines where the hand parser proceeds. Under this model both are conformant, and the distinction
+> the model forbids — two different values for one input — has not been observed.
+
+Two implementations, neither derived from the other, are the practical test of whether §3 and §4 say
+enough. `profile_ref.py` was written from this document alone for exactly that purpose; the places
+the document did not initially say enough are recorded in its `GUESSES` list and have since been
+folded into §4.
+
+## 7. Conformance vectors
+
+Two files, and both are needed.
+
+[`normalized-module-hash-vectors.json`](normalized-module-hash-vectors.json) — one entry per module
+of the OVMF reference image, with the **as-found** and **normalized** digest of each. Real firmware,
+but it does not ship the input bytes: reproducing them means reproducing the build.
+
+[`normalized-module-hash-vectors-synthetic.json`](normalized-module-hash-vectors-synthetic.json) —
+small hand-built images carrying their inputs inline, runnable by anyone. These exist because the
+OVMF reference **cannot exercise half of §4**: every one of its 122 modules is PE32+ with only
+`ABSOLUTE` and `DIR64` fixups, so the PE32 `ImageBase` offset and width, the `HIGHLOW` subtract, a
+non-zero `TimeDateStamp`/`CheckSum`, and every failure case had never executed. An implementation can
+get the entire 32-bit path wrong and still reproduce all 122 real modules.
+
+Expected values in the synthetic file are produced by `profile_ref.py`, **not** by the implementation
+under test — vectors generated by the code they check prove only that it agrees with itself.
 
 The entries where `rebased: true` are the load-bearing ones — those are the modules where the two
 digests differ, and therefore the only ones that test the normalization at all. A implementation
@@ -165,7 +256,7 @@ Vectors are reproducible without shipping binaries: the inputs are the modules o
 buildable image, identified by `FILE_GUID`, and the vectors file records the image digest they were
 taken from.
 
-## 7. Reference implementations
+## 8. Reference implementations
 
 | | Where | Notes |
 |---|---|---|
@@ -173,7 +264,7 @@ taken from.
 | Producer | edk2 fork, `BaseTools/.../BuildReport.py` (`-Y SBOM`) | Declares the digest and the profile value. |
 | — | CHIPSEC `scan_image` | A normalized-hash field has been *raised* as an idea in [chipsec/chipsec#2843](https://github.com/chipsec/chipsec/issues/2843) (open). CHIPSEC has **not** been asked to adopt this profile and has agreed to nothing; listed only so the idea's origin is traceable. |
 
-## 8. Why not just declare the as-placed hash?
+## 9. Why not just declare the as-placed hash?
 
 Fair question, and it would remove the need for this profile entirely: have the build record each
 module's hash as it sits in the finished image, then a verifier carves and hashes and compares. Nothing
@@ -193,13 +284,31 @@ So the choice is deliberate — keep the generator simple, put the work in the v
 the image anyway. Layout-independence is a bonus rather than the goal: the same hash identifies a
 module whichever image it lands in, which is also what makes it useful for allow-lists.
 
-## 9. Non-goals
+## 10. Relationship to TCG Component RIM
+
+IANA's CoSWID Items registry already assigns indices 58–74 to the *TCG Component RIM Binding for
+SWID/CoSWID*, and index **70**, `spdm-dmtf-spec-measurement-value-type`, is a discriminator saying
+what kind of measurement a digest is. That is close enough to this profile's purpose that anyone
+reviewing a coSWID extension will raise it, and it deserves an answer rather than silence.
+
+The distinction: index 70 discriminates **what was measured** within an SPDM measurement block —
+it selects among DMTF-defined measurement value types for a device reporting its own state over
+SPDM. This profile discriminates **how a digest was computed** from a firmware file at rest: which
+byte transformation was applied before hashing. The two are orthogonal, and a producer could in
+principle need both.
+
+Honest caveats: this has not been raised with TCG, the fit has been assessed from the registry and
+the specification's scope rather than from implementation experience, and if a TCG mechanism can
+carry a preimage-transformation identifier then reusing it is plainly better than minting a new
+one. That question should be asked before any registration is sought.
+
+## 11. Non-goals
 
 This profile does **not** define where the digest is carried, how it is signed, what a mismatch
 implies, or any policy. It is one comparison contract. Carriage is discussed separately in
 [`planning/normalized-module-identity.html`](../planning/normalized-module-identity.html).
 
-## 10. Status
+## 12. Status
 
 Draft. Nothing here has been proposed to any standards body. It is written to be pointed at, so that
 a normalization can be *referenced* rather than *re-specified* — which is precisely the objection
