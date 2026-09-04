@@ -28,6 +28,7 @@ test: ## Gate honesty tests (opa+jq) + assembler + byte-integrity unit tests + c
 	bash tests/run.sh
 	python3 tests/test_assemble.py
 	$(or $(COSWID_PY),python3) tests/test_byte_integrity.py
+	$(or $(COSWID_PY),python3) tests/test_profile_conformance.py
 	$(or $(COSWID_PY),python3) tests/test_deploy_reconcile.py
 	$(or $(COSWID_PY),python3) tests/test_efilist_interop.py
 	python3 tests/test_attack_demo.py

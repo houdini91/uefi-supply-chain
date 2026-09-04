@@ -189,6 +189,21 @@ def canon_unrebase(pe_bytes):
     # canonicalization. A module whose reloc table was STRIPPED after rebasing would fail to match
     # here — flagged modified, never a false pass. Only when a reloc table is present is there
     # anything to reverse.
+    # A relocation directory that is DECLARED but that pefile would not parse must fail
+    # closed. Without this the loop below is simply skipped and the function returns a
+    # header-only normalization — indistinguishable from a module that genuinely has no
+    # relocations, and silently wrong for one that does. pefile drops a directory it
+    # dislikes (bad FileAlignment, RVA it maps elsewhere, malformed block) without raising,
+    # so "no entries" is not evidence of "no relocations". Found by cross-checking against
+    # producers/reconcile/profile_ref.py, which parses relocations itself.
+    if base:
+        _dd = pe.OPTIONAL_HEADER.DATA_DIRECTORY
+        _declared = len(_dd) > 5 and _dd[5].VirtualAddress and _dd[5].Size
+        if _declared and not getattr(pe, "DIRECTORY_ENTRY_BASERELOC", None):
+            raise ValueError(
+                "relocation directory declared (rva %#x size %d) but no entries were parsed — "
+                "refusing to emit a header-only normalization"
+                % (_dd[5].VirtualAddress, _dd[5].Size))
     if base and hasattr(pe, "DIRECTORY_ENTRY_BASERELOC"):
         for blk in pe.DIRECTORY_ENTRY_BASERELOC:
             for e in blk.entries:
