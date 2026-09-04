@@ -5,6 +5,13 @@ emits **does** and **does not** conform to, against the [OSF Firmware Embedded S
 spec](https://github.com/open-source-firmware/sbom) (v0.10, 2024-FEB-21) and
 [RFC 9393 (coSWID)](https://www.rfc-editor.org/rfc/rfc9393).
 
+> **On the `M-…` / `E-…` labels used below.** These are **this repo's own shorthand**, not
+> identifiers from the OSF specification. Checked 2026-09-04: the spec's `source/*.rst` files
+> contain no requirement IDs at all — every requirement is an unlabelled bullet, and the document
+> is still v0.10 ("Initial prerelease version. Imported text from LVFS."). The labels are a
+> convenience for cross-referencing *within this repo* and must not be used when corresponding with
+> the OSF project, where they will not resolve.
+
 **Framing.** This repo is a **verification layer** that is *complementary to*
 hughsie/python-uswid + fwupd's embedded-SBOM model, not a competing SBOM producer
 and **not** a claim of repo-level "OSF conformance." Our emit is a thin wrapper on

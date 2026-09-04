@@ -12,8 +12,8 @@ These vectors are hand-built, tiny, and shipped as bytes, so a second implemente
 without reproducing anyone's firmware build. They cover the paths the real image never reaches
 and the failure cases the profile says must emit no value.
 
-  profile-synth-vectors.py --emit -o docs/normalized-module-hash-vectors-synthetic.json
-  profile-synth-vectors.py --check docs/normalized-module-hash-vectors-synthetic.json
+  profile-synth-vectors.py --emit -o docs/normalized-module-hash-vectors-runnable.json
+  profile-synth-vectors.py --check docs/normalized-module-hash-vectors-runnable.json
 """
 import argparse
 import base64

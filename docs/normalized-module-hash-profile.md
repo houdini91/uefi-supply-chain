@@ -231,7 +231,7 @@ Two files, and both are needed.
 of the OVMF reference image, with the **as-found** and **normalized** digest of each. Real firmware,
 but it does not ship the input bytes: reproducing them means reproducing the build.
 
-[`normalized-module-hash-vectors-synthetic.json`](normalized-module-hash-vectors-synthetic.json) —
+[`normalized-module-hash-vectors-runnable.json`](normalized-module-hash-vectors-runnable.json) —
 small hand-built images carrying their inputs inline, runnable by anyone. These exist because the
 OVMF reference **cannot exercise half of §4**: every one of its 122 modules is PE32+ with only
 `ABSOLUTE` and `DIR64` fixups, so the PE32 `ImageBase` offset and width, the `HIGHLOW` subtract, a

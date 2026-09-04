@@ -286,6 +286,9 @@ Both controls are now MET, and the scope stays honestly labelled:
   `osf-identity-shape` is an always-emitted, gated report: on a clean release every module's
   `bom-ref` is GUID-form, so it is GREEN; a module lacking a GUID tag-id DENYs (see fixture
   `osf-nonconformant.json`).
+> **`M-…` labels are this repo's shorthand, not OSF identifiers.** The OSF spec (v0.10) has no
+> requirement IDs — verified 2026-09-04. See the note at the top of `CONFORMANCE.md`.
+
 - **Source-hash / M-srchash MUST (now MET):** the `-Y SBOM` generator emits a real per-module
   **`edk2:sourceHash`** — a SHA-256 over the module's INF `[Sources]` file set, deterministic
   and reproducible (verified by independent recompute) — for **123/123** OvmfPkgX64 modules,

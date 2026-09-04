@@ -19,7 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "producers", "reconcile"))
 import profile_ref  # noqa: E402
 
-VECTORS = os.path.join(HERE, "..", "docs", "normalized-module-hash-vectors-synthetic.json")
+VECTORS = os.path.join(HERE, "..", "docs", "normalized-module-hash-vectors-runnable.json")
 fails = []
 
 
