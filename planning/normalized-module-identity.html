@@ -428,13 +428,13 @@ file-entry = {
     <div class="side">
       <span class="lbl">Declared · at build</span>
       <p class="chain">edk2 <code>-Y SBOM</code> → GenFw <code>.efi</code>, already base-0</p>
-      <div class="val">uefipe:1:rebase0:sha256:1348ff9c…681051</div>
+      <div class="val">uefi-pe-rebase0/v1:sha256:1348ff9c…681051</div>
     </div>
     <div class="eq">=</div>
     <div class="side">
       <span class="lbl">Observed · from the image</span>
       <p class="chain">CHIPSEC <code>uefi decode</code> → un-rebase → SHA-256</p>
-      <div class="val">uefipe:1:rebase0:sha256:1348ff9c…681051</div>
+      <div class="val">uefi-pe-rebase0/v1:sha256:1348ff9c…681051</div>
     </div>
   </div>
 
@@ -471,7 +471,7 @@ file-entry = {
       2.0 would delete.</p>
 <pre><code>"identifiers": [
   { "scheme": "purl",   "value": "pkg:generic/edk2/PeiCore" },
-<span class="ask">  { "scheme": "uefipe", "value": "uefipe:1:rebase0:sha256:1348ff9c…681051" }</span>
+<span class="ask">  { "scheme": "uefi-pe-rebase0", "value": "uefi-pe-rebase0/v1:sha256:1348ff9c…681051" }</span>
 ]</code></pre>
   </div>
 
@@ -495,9 +495,9 @@ file-entry = {
   ],
 <span class="ask">  "software_contentIdentifier": [
     { "type": "software_ContentIdentifier",
-      "software_contentIdentifierType": "uefipe",     <span class="cmt">&lt;-- enum: ["gitoid","swhid"] today</span>
+      "software_contentIdentifierType": "uefi-pe-rebase0/v1",     <span class="cmt">&lt;-- enum: ["gitoid","swhid"] today</span>
       "software_contentIdentifierValue":
-        "uefipe:1:rebase0:sha256:1348ff9c…681051" }
+        "uefi-pe-rebase0/v1:sha256:1348ff9c…681051" }
   ]</span>
 }</code></pre>
   </div>
@@ -515,7 +515,7 @@ file-entry = {
 <pre><code>file-entry = {
   fs-name: "PeiCore",
   hash: [ 1, h'1348ff9c…681051' ],   <span class="cmt">; alg-id 1 = sha-256, unchanged</span>
-<span class="ask">  ? -1 =&gt; "uefipe:1:rebase0",        ; $$file-extension — private use (-256..-1)</span>
+<span class="ask">  ? -1 =&gt; "uefi-pe-rebase0/v1",        ; $$file-extension — private use (-256..-1)</span>
 }</code></pre>
   </div>
 
@@ -532,13 +532,13 @@ file-entry = {
   "name": "PeiCore",
   "digest": {
     "sha256":  "…",                              <span class="cmt">&lt;-- as-found, differs (rebased)</span>
-<span class="add">    "uefipe1": "1348ff9c…681051"                 <span class="cmt">&lt;-- normalized identity</span></span>
+<span class="add">    "uefi-pe-rebase0-v1": "1348ff9c…681051"                 <span class="cmt">&lt;-- normalized identity</span></span>
   }
 }]</code></pre>
   </div>
 
   <div class="note">
-    <strong><code>uefipe</code> is a placeholder.</strong> The scheme name, its version segment and
+    <strong><code>uefi-pe-rebase0/v1</code> is the identifier used in this repo; the ecosystem spelling is open.</strong> The scheme name, its version segment and
     whether the transformation belongs in the name at all are community decisions, not ones to settle
     unilaterally — gitoid chose <code>gitoid:blob:sha256:…</code> and SWHID chose
     <code>swh:1:cnt:…</code>, so there is precedent for both styles. What matters is that the value is
@@ -571,10 +571,9 @@ file-entry = {
     </p>
     <p>
       One sequencing constraint is real and it is technical, not strategic: write the profile with
-      byte-patch normalization <em>before</em> the CHIPSEC PR ships. Merging a parse-and-re-serialize
-      normal form into a widely deployed tool would promote pefile-equivalent serializer behaviour into
-      the de-facto definition — ossification made worse, not better, and the one move here that is hard
-      to reverse.
+      byte-patch normalization <em>before</em> the CHIPSEC PR ships. The normalization is now byte patches at documented offsets (done 2026-09-03), with a
+      dependency-free second implementation and runnable vectors (done 2026-09-04) — so the CHIPSEC
+      branch implements a written profile rather than becoming its definition.
     </p>
   </div>
 </section>

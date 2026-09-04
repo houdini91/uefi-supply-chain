@@ -197,6 +197,19 @@ def canon_unrebase(pe_bytes):
     # so "no entries" is not evidence of "no relocations". Found by cross-checking against
     # producers/reconcile/profile_ref.py, which parses relocations itself.
     if base:
+        # Read the directory bounds from the RAW header, not from pefile's parsed list: when
+        # the image is truncated inside the data directory pefile returns a SHORTER list
+        # without raising, so `len(_dd) > 5` is False and the truncation looks like absence.
+        # Second fail-open of this class, found by the conformance floor (profile s4.1:
+        # "an unreadable directory is a failure, not an absence").
+        _e = struct.unpack_from("<I", buf, 0x3C)[0]
+        _oh = _e + 4 + 20
+        _magic = struct.unpack_from("<H", buf, _oh)[0]
+        _numrva_off, _dd_off = ((_oh + 92, _oh + 96) if _magic == 0x10B else (_oh + 108, _oh + 112))
+        if _numrva_off + 4 > len(buf):
+            raise ValueError("NumberOfRvaAndSizes unreadable with ImageBase != 0")
+        if struct.unpack_from("<I", buf, _numrva_off)[0] > 5 and _dd_off + 6 * 8 > len(buf):
+            raise ValueError("data directory truncated before the base-relocation entry")
         _dd = pe.OPTIONAL_HEADER.DATA_DIRECTORY
         _declared = len(_dd) > 5 and _dd[5].VirtualAddress and _dd[5].Size
         if _declared and not getattr(pe, "DIRECTORY_ENTRY_BASERELOC", None):
@@ -206,6 +219,11 @@ def canon_unrebase(pe_bytes):
                 % (_dd[5].VirtualAddress, _dd[5].Size))
     if base and hasattr(pe, "DIRECTORY_ENTRY_BASERELOC"):
         for blk in pe.DIRECTORY_ENTRY_BASERELOC:
+            # Entries are u16, so a block whose size is odd cannot be well-formed. pefile
+            # floors the entry count and carries on; the profile (s4.1) says fail. Check the
+            # raw SizeOfBlock ourselves rather than trust the parsed entry list.
+            if (blk.struct.SizeOfBlock - 8) % 2:
+                raise ValueError("odd relocation BlockSize %d" % blk.struct.SizeOfBlock)
             for e in blk.entries:
                 if e.type == 0:            # IMAGE_REL_BASED_ABSOLUTE — padding, skip
                     continue

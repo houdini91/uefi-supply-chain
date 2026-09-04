@@ -111,18 +111,23 @@ A `BlockSize` of `0` ends the walk. Then for each entry, at the file offset its 
 | `10` | `IMAGE_REL_BASED_DIR64` | read LE `uint64` *v*, write `(v − B) mod 2⁶⁴` |
 | any other | — | **fail — emit no value** |
 
-**Failure cases — all emit no value, never a partially-normalized image.** An unsupported
-relocation type; a `BlockSize` below 8 or extending past the directory; a directory extending past
-the end of the image; an RVA (of the directory or of any fixup target) that maps to no section; a
-fixup target whose 4 or 8 bytes would run past the end of the image; a section table extending past
-the end of the image.
+**Failure cases — all emit no value, never a partially-normalized image.** With `B ≠ 0`: an image
+that ends before `NumberOfRvaAndSizes` or before data-directory index 5 can be read (an
+**unreadable** directory is a failure, not an absence — see the callout below). An unsupported
+relocation type; a `BlockSize` below 8, **odd**, or extending past the directory; a directory
+extending past the end of the image; an RVA (of the directory or of any fixup target) that maps to no
+section; a fixup target whose 4 or 8 bytes would run past the end of the image; a section table
+extending past the end of the image.
 
-> **A declared directory that cannot be parsed is a failure, not an absence.** An implementation
-> that delegates parsing to a library must check this explicitly: some libraries discard a
-> relocation directory they dislike without raising, and the resulting header-only normalization is
-> indistinguishable from a module that genuinely has no relocations — and silently wrong for one
-> that does. This exact fault was found in this repo's own pefile-based implementation by
-> cross-checking it against `producers/reconcile/profile_ref.py`.
+> **A declared or unreadable directory is a failure, not an absence.** Two implementations in this
+> repo each had a version of this fault. The pefile-based one delegated parsing to a library that
+> discards a relocation directory it dislikes without raising, so the loop was skipped. The
+> dependency-free one let a *truncated* data directory fall through to "absent". In both cases the
+> result was a header-only normalization — indistinguishable from a module with genuinely no
+> relocations, and silently wrong for one that has them. The two agreed on all 122 reference modules
+> while both carried the fault, because no reference module triggers it. Agreement between
+> implementations is not evidence about paths neither exercises; that is what the negative vectors
+> in §7 are for.
 
 > A module whose relocation table was *stripped after* rebasing will not reproduce its declared
 > digest. That is the intended behaviour — it is reported as a mismatch, never silently accepted.
@@ -176,6 +181,12 @@ A producer declaring a digest **MUST** state which profile produced it.
 | `genfw-rebase-0` | **alias** | What the edk2 `-Y SBOM` generator emits today, in `edk2:hashCanonicalForm`, for this same profile. Accept as equivalent to `uefi-pe-rebase0/v1`. Retained because it is already present in shipped SBOMs; new producers should emit the canonical form. |
 | `raw-pe32` | degraded | The digest is over the PE32 payload with **no** normalization. Emitted when a producer cannot obtain a base-0 form. **Not** comparable to either of the above. |
 
+**Scope.** An identifier attached to a *component* (CycloneDX `properties[]`, coSWID `file-entry`)
+applies to **every** hash on that component. The reference SBOM carries one `edk2:hashCanonicalForm`
+per module beside both a SHA-256 and a SHA-512; both digests are over the same normalized bytes. An
+identifier embedded in a self-describing value (`uefi-pe-rebase0/v1:sha256:…`) applies to that value
+only. A component **MUST NOT** carry hashes under more than one profile without a per-hash form.
+
 **Versioning.** The version is part of the identifier; there is no unversioned form. A consumer
 **MUST** match identifiers exactly and **MUST NOT** treat `uefi-pe-rebase0` as equal to, or a prefix
 of, `uefi-pe-rebase0/v1`. A change to §3 or §4 that alters any digest requires a new version.
@@ -189,6 +200,11 @@ of, `uefi-pe-rebase0/v1`. A change to §3 or §4 that alters any digest requires
 > would retroactively invalidate all of them. The obligation therefore falls on the producer: a
 > producer that applies **any** transformation before hashing **MUST** record the identifier.
 > That version is also testable, which "a consumer MUST NOT compare" is not.
+
+**Unknown identifier.** A consumer that meets an identifier it does not implement **MUST NOT**
+compare the digest against anything it computes; the outcome is *not comparable*, and a verification
+tool **SHOULD** report it as such rather than as a mismatch. Silently ignoring the identifier and
+comparing anyway is the failure this profile exists to prevent.
 
 > A consumer **MUST NOT** compare digests across differing profile values, and **MUST NOT** treat
 > such a comparison as a match or a mismatch — it is *not comparable*, which is a third outcome.
@@ -208,9 +224,13 @@ of, `uefi-pe-rebase0/v1`. A change to §3 or §4 that alters any digest requires
 
 An implementation is conformant if, **whenever it emits a value, that value is correct**.
 
-Emitting **no value** is always permitted. An implementation may decline any input it cannot parse
-to its own satisfaction — parsers differ in strictness, and a stricter one is not less conformant.
-What is never permitted is emitting a value that *differs* from the reference for the same input.
+Emitting **no value** is permitted on any input the implementation cannot parse to its own
+satisfaction — parsers differ in strictness, and a stricter one is not less conformant. What is never
+permitted is emitting a value that *differs* from the reference for the same input.
+
+Declining is not free, though: an implementation that emits no value for **any** vector marked
+`expect_value: true` in the runnable set is **not conformant**. Those vectors are the floor. Without
+one, an implementation that declines everything would satisfy "never differs" vacuously.
 
 > This matters because it is already the observed situation. This repo's `canon_unrebase` (built on
 > `pefile`) and `profile_ref.py` (a dependency-free parser) both reproduce all 122 modules of the
@@ -238,8 +258,13 @@ OVMF reference **cannot exercise half of §4**: every one of its 122 modules is 
 non-zero `TimeDateStamp`/`CheckSum`, and every failure case had never executed. An implementation can
 get the entire 32-bit path wrong and still reproduce all 122 real modules.
 
-Expected values in the synthetic file are produced by `profile_ref.py`, **not** by the implementation
+Expected values in the runnable file are produced by `profile_ref.py`, **not** by the implementation
 under test — vectors generated by the code they check prove only that it agrees with itself.
+
+**What the vectors cannot test.** They feed PE bytes directly, so §3 (the section-header strip,
+including the 8-byte extended form) is never exercised by them; that clause is checked only by
+reading. And they cover the failure cases individually rather than exhaustively — a passing run is
+evidence, not proof.
 
 The entries where `rebased: true` are the load-bearing ones — those are the modules where the two
 digests differ, and therefore the only ones that test the normalization at all. A implementation
@@ -260,7 +285,8 @@ taken from.
 
 | | Where | Notes |
 |---|---|---|
-| Verifier | `producers/reconcile/ffs.py` → `canon_unrebase()` | Python + `pefile`. Byte-patching per §4; verified byte-for-byte identical to the previous parse-and-re-serialize implementation across all 122 reference modules. |
+| Verifier | `producers/reconcile/ffs.py` → `canon_unrebase()` | Python + `pefile`. Byte-patching per §4. Delegates PE parsing to `pefile` and therefore declines some inputs the reference accepts; fails closed on a declared-but-unparsed relocation directory. |
+| **Reference** | `producers/reconcile/profile_ref.py` | Dependency-free (`hashlib` + `struct` only). Written from §3–§4 of this document without consulting `canon_unrebase`; it is what the runnable vectors' expected values come from. Agrees with `canon_unrebase` on all 122 reference modules. Its `GUESSES` list records every place this document initially fell short. |
 | Producer | edk2 fork, `BaseTools/.../BuildReport.py` (`-Y SBOM`) | Declares the digest and the profile value. |
 | — | CHIPSEC `scan_image` | A normalized-hash field has been *raised* as an idea in [chipsec/chipsec#2843](https://github.com/chipsec/chipsec/issues/2843) (open). CHIPSEC has **not** been asked to adopt this profile and has agreed to nothing; listed only so the idea's origin is traceable. |
 
@@ -273,8 +299,9 @@ computes.
 
 The catch is where the work lands. To declare an as-placed hash, the generator has to carve its own
 finished firmware image, including decompressing the volumes inside it. The intermediate `.Fv` build
-artifacts are not a shortcut — **8 of 117** modules in them differ from what actually ships (measured
-2026-09-03), because the volumes are re-packed during image assembly.
+artifacts are not a shortcut — of the 122 reference modules, 117 could be located in them at all and
+**8 of those 117** differ from what actually ships (measured 2026-09-03), because the volumes are
+re-packed during image assembly.
 
 That would turn the generator into a firmware parser. Today it hashes the `.efi` files the build
 already produced: no FV knowledge, no dependencies. That simplicity is the main argument for it being

@@ -64,7 +64,12 @@ def main():
             # that DIFFERS from the reference. So "no value" is acceptable everywhere;
             # a wrong value never is.
             if got is None:
-                check(True, f"pefile declines (safe): {v['id']}")
+                # Declining is allowed ONLY where the profile does not require a value. A
+                # conformant implementation MUST produce every expect_value:true vector --
+                # otherwise "never differs" is satisfied by declining everything (s6).
+                check(not v.get("expect_value"),
+                      f"pefile declines on a vector the profile requires a value for: {v['id']}"
+                      if v.get("expect_value") else f"pefile declines (permitted): {v['id']}")
             else:
                 check(got == v["sha256_norm"],
                       f"pefile agrees with reference: {v['id']}")

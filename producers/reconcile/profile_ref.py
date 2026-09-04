@@ -47,6 +47,11 @@ GUESSES = [
     ("G8", "The profile never says whether a relocation entry of type 0 (ABSOLUTE) with a "
            "non-zero offset should be skipped or treated as malformed. Chose: skip, per the "
            "table's 'padding, carries no fixup'."),
+    ("G9", "FOUND BY REVIEW after the first cross-check. A data directory that cannot be READ "
+           "(image ends before index 5) with B != 0 was treated as absent and emitted a "
+           "header-only value -- the same fail-open canon_unrebase had. Two implementations "
+           "agreeing on the reference did not catch it because both shared the blind spot. "
+           "Now: fail. Also: an odd BlockSize was unspecified and emitted a value; now: fail."),
 ]
 
 ABSOLUTE, HIGHLOW, DIR64 = 0, 3, 10
@@ -121,12 +126,20 @@ def normalize(preimage: bytes) -> bytes:
 
     # --- s4.1 reverse the relocation fixups ---
     if B != 0:
+        # An UNREADABLE directory is a failure, not an absence. The first version of this
+        # function let a truncated data directory fall through to have_dir=False and
+        # emitted a header-only value -- the identical fail-open class found in
+        # canon_unrebase, reproduced independently here. Both implementations shared the
+        # blind spot, so their agreement on the reference proved nothing about it.
+        if numrva_off + 4 > len(buf):
+            raise NotNormalizable("NumberOfRvaAndSizes unreadable with ImageBase != 0")
         have_dir = False
-        if numrva_off + 4 <= len(buf) and _u32(buf, numrva_off) > 5:      # [G3][G4]
-            if dd_off + 6 * 8 <= len(buf):
-                reloc_rva = _u32(buf, dd_off + 5 * 8)
-                reloc_size = _u32(buf, dd_off + 5 * 8 + 4)
-                have_dir = reloc_rva != 0 and reloc_size != 0             # [G4]
+        if _u32(buf, numrva_off) > 5:                                      # [G3][G4]
+            if dd_off + 6 * 8 > len(buf):
+                raise NotNormalizable("data directory truncated before the base-relocation entry")
+            reloc_rva = _u32(buf, dd_off + 5 * 8)
+            reloc_size = _u32(buf, dd_off + 5 * 8 + 4)
+            have_dir = reloc_rva != 0 and reloc_size != 0                 # [G4]
         if have_dir:
             sections = _sections(buf, fh, oh)
             start = _rva_to_offset(reloc_rva, sections)                   # [G1][G5]
@@ -141,6 +154,8 @@ def normalize(preimage: bytes) -> bytes:
                     break
                 if block_size < 8 or p + block_size > end:
                     raise NotNormalizable("malformed relocation block")   # [G5]
+                if (block_size - 8) % 2:
+                    raise NotNormalizable("odd relocation BlockSize")      # entries are u16
                 for q in range(p + 8, p + block_size, 2):
                     ent = _u16(buf, q)
                     rtype, roff = ent >> 12, ent & 0xFFF

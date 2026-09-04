@@ -1,6 +1,12 @@
 # The normalized-module-hash profile — how CHIPSEC #2843, OSF #3, and this demo fit together
 
-> **Status: PLAN (2026-09-03).** Written after re-reading both live upstream threads. Nothing here is
+> **Status: PLAN (2026-09-03) — largely EXECUTED by 2026-09-04.** Track 0 is done: the
+> normalization is byte patches (`7a28f72`), a dependency-free second implementation
+> `profile_ref.py` reproduces all 122 reference modules (`7cf8ae2`), the profile document closes the
+> eight gaps that implementation found, runnable vectors ship inputs inline, and the gate refuses
+> cross-profile comparison (`28c6f53`). The identifier is `uefi-pe-rebase0/v1` everywhere (the
+> `uefipe` placeholder below is superseded). Sections describing Track 0 as future work are kept as
+> the record of the plan, not the state. Written after re-reading both live upstream threads. Nothing here is
 > filed or sent. Companion to [`CHIPSEC-INTEGRATION.md`](CHIPSEC-INTEGRATION.md) (Track B) and the
 > drafts in `planning/engagement/`.
 >

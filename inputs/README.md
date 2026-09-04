@@ -47,7 +47,8 @@ image and SBOM were built from. The assembler surfaces it into the gate input as
 25 commits behind it — the reference predates the generator hardening that added the
 `raw-pe32` canonicalization fallback. Two consequences worth stating rather than discovering later:
 
-- The reference SBOM's declared hashes are all `edk2:hashCanonicalForm = genfw-rebase-0`. The
+- The reference SBOM's declared hashes are all `edk2:hashCanonicalForm = genfw-rebase-0` — the
+  alias of the canonical profile identifier `uefi-pe-rebase0/v1`; the gate accepts both. The
   `raw-pe32` profile is *defined* (see [`docs/normalized-module-hash-profile.md`](../docs/normalized-module-hash-profile.md)
   and `data.supported_hash_profiles`) but **not exercised** by this reference.
 - Re-deriving from the fork's current `master` changes the anchor `D`, which forces every negative
