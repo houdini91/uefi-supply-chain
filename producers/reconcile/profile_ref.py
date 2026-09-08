@@ -70,6 +70,8 @@ GUESSES = [
 ABSOLUTE, HIGHLOW, DIR64 = 0, 3, 10
 RELOCS_STRIPPED = 0x0001          # IMAGE_FILE_RELOCS_STRIPPED, FileHeader.Characteristics
 MAGIC_PE32, MAGIC_PE32PLUS = 0x10B, 0x20B
+TE_SIGNATURE = b"VZ"               # EFI_TE_IMAGE_HEADER.Signature
+TE_HEADER_SIZE = 40                # sizeof(EFI_TE_IMAGE_HEADER)
 
 
 class NotNormalizable(Exception):
@@ -207,12 +209,128 @@ def normalize(preimage: bytes) -> bytes:
     struct.pack_into("<I", buf, fh + 4, 0)          # TimeDateStamp
     struct.pack_into("<I", buf, oh + 64, 0)         # CheckSum
     struct.pack_into(ib_fmt, buf, ib_off, 0)        # ImageBase
+    _zero_section_pointers(buf, oh + _u16(buf, fh + 16), _u16(buf, fh + 2))
+    return bytes(buf)
+
+
+def _zero_section_pointers(buf, sec_tbl, nsec):
+    """[G11] PointerToRelocations and PointerToLinenumbers, every section header.
+
+    These are COFF *object-file* fields and are zero in every linked image -- 993 of
+    993 real modules measured. They are zeroed because GenFw's rebase stores the load
+    address there: "Set base address into the first section header that doesn't point
+    to code section" (BaseTools/Source/C/GenFw/GenFw.c:966-972), writing a UINT64 over
+    the pair. That is placement-dependent data by definition, so it must not survive.
+    """
+    for i in range(nsec):
+        h = sec_tbl + i * 40
+        if h + 40 > len(buf):
+            break
+        struct.pack_into("<Q", buf, h + 24, 0)
+
+
+def _te_sections(buf, nsec):
+    """Section table of a TE image: same 40-byte entries, at a fixed offset, holding
+    ORIGINAL-PE coordinates (GenFw copies them verbatim and never rewrites them)."""
+    out = []
+    for i in range(nsec):
+        h = TE_HEADER_SIZE + i * 40
+        if h + 40 > len(buf):
+            raise NotNormalizable("section table past end of image")
+        out.append((_u32(buf, h + 12), _u32(buf, h + 8), _u32(buf, h + 20), _u32(buf, h + 16)))
+    return out
+
+
+def _te_rva_to_offset(rva, sections, tso):
+    """The PE32 rule plus one constant: a TE file is the original PE with its first
+    StrippedSize bytes replaced by a 40-byte header, so every original-PE offset moves
+    down by (StrippedSize - 40). Cf. BasePeCoff.c:427-431."""
+    for va, _vsize, praw, rsize in sections:
+        if praw == 0 or rsize == 0:
+            continue
+        if va <= rva < va + rsize:
+            return praw + (rva - va) - tso
+    raise NotNormalizable("rva %#x maps to no section with raw data" % rva)
+
+
+def normalize_te(preimage: bytes) -> bytes:
+    """Profile `uefi-te-rebase0/v1` -- the TE sibling of `uefi-pe-rebase0/v1`.
+
+    A TE header carries no TimeDateStamp and no CheckSum, so the PE32 profile's s4.2
+    reduces to a single field here: ImageBase. Everything else is the same operation.
+    """
+    buf = bytearray(preimage)
+    if len(buf) < TE_HEADER_SIZE or bytes(buf[:2]) != TE_SIGNATURE:
+        raise NotNormalizable("not a TE image")
+    nsec = buf[4]
+    stripped = _u16(buf, 6)
+    if stripped <= TE_HEADER_SIZE:
+        raise NotNormalizable("StrippedSize %d does not exceed the TE header" % stripped)
+    tso = stripped - TE_HEADER_SIZE
+    B = struct.unpack_from("<Q", buf, 16)[0]
+    reloc_rva, reloc_size = struct.unpack_from("<II", buf, 24)   # DataDirectory[0] = BASERELOC
+
+    if B != 0:
+        if reloc_size == 0:
+            # A TE has no Characteristics, so it cannot carry IMAGE_FILE_RELOCS_STRIPPED.
+            # GenFw encodes the same fact in the directory instead: it writes a bogus
+            # NON-ZERO VirtualAddress with Size 0 to mean "relocatable, no fixups"
+            # (GenFw.c:2700-2712), precisely because loaders read VA == 0 && Size == 0
+            # as "relocations stripped" (MdePkg BasePeCoff.c:660-661). So VA is the
+            # discriminator here, and it plays the role RELOCS_STRIPPED plays for PE32.
+            if reloc_rva == 0:
+                raise NotNormalizable("relocations stripped with ImageBase != 0; not reversible")
+        else:
+            sections = _te_sections(buf, nsec)
+            start = _te_rva_to_offset(reloc_rva, sections, tso)
+            end = start + reloc_size
+            if start < 0 or end > len(buf):
+                raise NotNormalizable("relocation directory past end of image")
+            p = start
+            while p + 8 <= end:
+                page_rva = _u32(buf, p)
+                block_size = _u32(buf, p + 4)
+                if block_size == 0:
+                    break
+                if block_size < 8 or p + block_size > end:
+                    raise NotNormalizable("malformed relocation block")
+                if (block_size - 8) % 2:
+                    raise NotNormalizable("odd relocation BlockSize")
+                for q in range(p + 8, p + block_size, 2):
+                    ent = _u16(buf, q)
+                    rtype, roff = ent >> 12, ent & 0xFFF
+                    if rtype == ABSOLUTE:
+                        continue
+                    if rtype not in (HIGHLOW, DIR64):
+                        raise NotNormalizable("unsupported relocation type %d" % rtype)
+                    target = _te_rva_to_offset(page_rva + roff, sections, tso)
+                    if target < 0:
+                        raise NotNormalizable("fixup target precedes the image")
+                    if rtype == HIGHLOW:
+                        if target + 4 > len(buf):
+                            raise NotNormalizable("HIGHLOW target past end")
+                        v = _u32(buf, target)
+                        struct.pack_into("<I", buf, target, (v - B) & 0xFFFFFFFF)
+                    else:
+                        if target + 8 > len(buf):
+                            raise NotNormalizable("DIR64 target past end")
+                        v = struct.unpack_from("<Q", buf, target)[0]
+                        struct.pack_into("<Q", buf, target, (v - B) & ((1 << 64) - 1))
+                p += block_size
+
+    _zero_section_pointers(buf, TE_HEADER_SIZE, nsec)
+    struct.pack_into("<Q", buf, 16, 0)              # TE ImageBase
     return bytes(buf)
 
 
 def digest(preimage: bytes) -> str:
     """s4.3 — SHA-256, lowercase hex. None-equivalent cases raise."""
     return hashlib.sha256(normalize(preimage)).hexdigest()
+
+
+def digest_te(preimage: bytes) -> str:
+    """`uefi-te-rebase0/v1` digest — SHA-256, lowercase hex."""
+    return hashlib.sha256(normalize_te(preimage)).hexdigest()
 
 
 if __name__ == "__main__":

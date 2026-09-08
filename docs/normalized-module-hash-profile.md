@@ -34,12 +34,22 @@ precondition that makes a build-declared hash and a deployment-observed hash *co
 
 ## 2. Scope
 
-**In scope.** `EFI_SECTION_PE32` sections carrying a PE32 or PE32+ image.
+This document defines **two** profiles, one per executable format:
 
-**Out of scope — emit no value.** TE-format sections (`EFI_SECTION_TE`), non-PE blobs
-(e.g. `ResetVector`), sections that cannot be cleanly parsed, and any image whose relocations this
-profile does not define. An implementation **MUST NOT** emit a value it could not compute exactly.
-A missing value is a correct answer; a guessed one is not.
+| Format | Section type | Profile |
+|---|---|---|
+| PE32 / PE32+ | `EFI_SECTION_PE32` | **`uefi-pe-rebase0/v1`** — §4.1–4.3 |
+| TE (Terse Executable) | `EFI_SECTION_TE` | **`uefi-te-rebase0/v1`** — §4.4 |
+
+They are **siblings, not versions**. A TE is produced from a PE by discarding its header prologue,
+so the two normalize different preimages and their digests are never equal, even for the same
+module. That is the reason a digest must carry its profile identifier: a consumer holding one of
+each **MUST** report *not comparable* rather than a mismatch (§5).
+
+**Out of scope — emit no value.** Non-PE, non-TE blobs (e.g. `ResetVector`), sections that cannot be
+cleanly parsed, and any image whose relocations these profiles do not define. An implementation
+**MUST NOT** emit a value it could not compute exactly. A missing value is a correct answer; a
+guessed one is not.
 
 **Not defined here.** How to carve modules out of a firmware image, what to do with the resulting
 digest, and what any mismatch means. Those belong to the consuming tool or specification.
@@ -179,6 +189,12 @@ Any other `OPTIONAL_HEADER` magic: **fail — emit no value.**
 `TimeDateStamp` and `CheckSum` are zeroed because edk2's `GenFw` already zeroes them when producing
 the build-side `.efi`; normalizing both sides to the same state is what makes the comparison fair.
 
+**Also zero, in every section header:** the 8 bytes spanning `PointerToRelocations` (`+24`) and
+`PointerToLinenumbers` (`+28`). These are COFF object-file fields, zero in every linked image, but
+GenFw's rebase writes the assigned load address as a `UINT64` across the pair of the first non-code
+section (`BaseTools/Source/C/GenFw/GenFw.c:966-972`). A second copy of the load address defeats the
+whole profile, so it is removed whether or not the local toolchain produces it. See §12.1.
+
 > **These two are a no-op on the OVMF reference, and they are still required.** Measured
 > 2026-09-03: across all 122 modules, `TimeDateStamp` and `CheckSum` are already `0`, while
 > `ImageBase` is non-zero on exactly the 11 rebased ones. So an implementation that skips these two
@@ -197,13 +213,87 @@ the build-side `.efi`; normalizing both sides to the same state is what makes th
 
 `SHA-256` over the resulting bytes. Lowercase hex.
 
+### 4.4 Sibling profile: TE images — `uefi-te-rebase0/v1`
+
+**Preimage.** The `EFI_SECTION_TE` payload with the common section header removed (§3 applies
+unchanged) — that is, the TE image beginning with its `VZ` signature.
+
+**Why this is a separate profile, not a variant.** `GenFw -t` discards the first `StrippedSize`
+bytes of a PE — DOS header and stub, PE signature, COFF file header, and the whole optional header
+including its data directories — and prepends a 40-byte `EFI_TE_IMAGE_HEADER`
+(`BaseTools/Source/C/GenFw/GenFw.c:2788-2791`). Everything from the section table onward survives
+byte-identically, so `TE[40:] ≡ PE[StrippedSize:]`. The discarded bytes are **unrecoverable**:
+`StrippedSize` records how many went, not what they were. A TE digest and a PE32 digest of the same
+module therefore differ by construction and no normalization can bridge them.
+
+**Header layout** (`MdePkg/Include/IndustryStandard/PeImage.h:778-788`), 40 bytes total:
+
+| Off | Width | Field |
+|---:|---:|---|
+| 0 | 2 | `Signature` — `VZ` |
+| 4 | 1 | `NumberOfSections` (**uint8**) |
+| 6 | 2 | `StrippedSize` (uint16) |
+| 16 | 8 | `ImageBase` (uint64) |
+| 24 | 8 | `DataDirectory[0]` — BASERELOC `{VirtualAddress, Size}` |
+
+There is **no `TimeDateStamp` and no `CheckSum`**, so §4.2 reduces here to `ImageBase` alone.
+
+**Section table.** At file offset **40**, the same 40-byte entries as PE32, holding
+**original-PE coordinates** — GenFw copies them verbatim and never rewrites them, which is why
+every consumer subtracts a constant from both `VirtualAddress` and `PointerToRawData`
+(`MdePkg/Library/BasePeCoffLib/BasePeCoff.c:36-44`).
+
+**Mapping an RVA to a file offset.** Let `TeStrippedOffset = StrippedSize − 40`, which **MUST** be
+positive; a `StrippedSize` not exceeding 40 is a failure. Apply the §4.1 rule, then subtract that
+constant:
+
+> `offset = PointerToRawData + (rva − VirtualAddress) − TeStrippedOffset`
+
+with the same requirement that the section have raw bytes (`PointerToRawData ≠ 0`,
+`SizeOfRawData ≠ 0`) and that `rva` fall within `SizeOfRawData`. A resulting offset below zero is a
+failure. Cf. `BaseTools/Source/C/Common/BasePeCoff.c:427-431`, which spells out this exact
+expression.
+
+**Relocation directory.** `DataDirectory[0]` at offset 24 — there is no `NumberOfRvaAndSizes` to
+guard, and no index to select. The block walk, the entry encoding and the supported types are
+exactly as in §4.1.
+
+**Absent versus stripped.** A TE header has no `Characteristics` field, so it cannot carry
+`IMAGE_FILE_RELOCS_STRIPPED`. The equivalent fact is encoded in the directory itself, and the
+polarity is easy to get backwards:
+
+| `DataDirectory[0]` | Meaning | With `B ≠ 0` |
+|---|---|---|
+| `VirtualAddress == 0 && Size == 0` | relocations **stripped** | **fail — emit no value** |
+| `VirtualAddress ≠ 0 && Size == 0` | relocatable, no fixups to reverse | zero `ImageBase`; emit |
+| `Size ≠ 0` | walk the directory | normal path |
+
+GenFw writes that non-zero-address-with-zero-size deliberately, *because* TE lacks
+`Characteristics` (`GenFw.c:2700-2712`), since loaders read all-zero as "relocations stripped"
+(`MdePkg/.../BasePeCoff.c:660-661`). A `VirtualAddress` accompanying `Size == 0` is a sentinel and
+**MUST NOT** be dereferenced.
+
+**Normalization.** Reverse the fixups as in §4.1 using the mapping above, zero
+`PointerToRelocations`/`PointerToLinenumbers` in every section header (§4.2), then zero the 8-byte
+`ImageBase` at offset 16. Digest as §4.3.
+
+**Identifier.** `uefi-te-rebase0/v1`.
+
+> **This profile has an oracle the PE32 one never had.** Its vectors are not merely two
+> implementations agreeing: `GenFw --rebase <addr>` followed by `GenFw -t` produces a genuinely
+> rebased TE using edk2's own tools, and normalizing it **MUST** reproduce, byte for byte, the TE
+> built from the same module at base 0. §7 carries that round trip at three different base
+> addresses. An independent oracle is stronger evidence than agreement, and it is what caught the
+> section-pointer defect recorded in §12.1.
+
 ## 5. Profile values
 
 A producer declaring a digest **MUST** state which profile produced it.
 
 | Identifier | Status | Meaning |
 |---|---|---|
-| **`uefi-pe-rebase0/v1`** | **canonical** | The full profile above. A verifier reproduces the digest by applying §4 to the shipped bytes. |
+| **`uefi-pe-rebase0/v1`** | **canonical** | The full profile above. A verifier reproduces the digest by applying §4.1–4.3 to the shipped bytes. |
+| **`uefi-te-rebase0/v1`** | **canonical** | The TE sibling, §4.4. **Never comparable to `uefi-pe-rebase0/v1`**, even for the same module: a TE is a PE with its header prologue discarded, so the two digests differ by construction. |
 | `genfw-rebase-0` | **alias** | What the edk2 `-Y SBOM` generator emits today, in `edk2:hashCanonicalForm`, for this same profile. Accept as equivalent to `uefi-pe-rebase0/v1`. Retained because it is already present in shipped SBOMs; new producers should emit the canonical form. |
 | `raw-pe32` | degraded | The digest is over the PE32 payload with **no** normalization. Emitted when a producer cannot obtain a base-0 form. **Not** comparable to either of the above. |
 
@@ -277,7 +367,21 @@ folded into §4.
 
 ## 7. Conformance vectors
 
-Two files, and both are needed.
+Three files.
+
+[`normalized-module-hash-te-vectors.json`](normalized-module-hash-te-vectors.json) — the §4.4 TE
+profile, and **the only vectors here backed by an independent oracle**. edk2's own `GenFw` performs
+the forward operation these reverse: `--rebase <addr>` relocates a module, `-t` converts it to TE,
+and normalizing the result must reproduce, byte for byte, the TE built from the same module at base
+0. Two base addresses, plus the sentinel case and three negatives. Nothing of ours contributes to
+the expected answer.
+
+> Prefer an oracle to agreement wherever one exists. Two implementations agreeing cannot catch a
+> rule both get wrong — that happened three times here, and the third (§12.1, the section-table
+> pointer pair) was caught by exactly this round trip and by nothing else. Regenerate with
+> `te-vectors.py --emit --edk2 <tree>`; check with `--check`, which needs neither edk2 nor GenFw.
+
+The other two cover `uefi-pe-rebase0/v1`, and both are needed.
 
 [`normalized-module-hash-vectors.json`](normalized-module-hash-vectors.json) — one entry per module
 of the OVMF reference image, with the **as-found** and **normalized** digest of each. Real firmware,
@@ -318,7 +422,8 @@ taken from.
 | | Where | Notes |
 |---|---|---|
 | Verifier | `producers/reconcile/ffs.py` → `canon_unrebase()` | Python + `pefile`. Byte-patching per §4. Delegates PE parsing to `pefile` and therefore declines some inputs the reference accepts; fails closed on a declared-but-unparsed relocation directory. |
-| **Reference** | `producers/reconcile/profile_ref.py` | Dependency-free (`hashlib` + `struct` only). Written from §3–§4 of this document without consulting `canon_unrebase`; it is what the runnable vectors' expected values come from. Agrees with `canon_unrebase` on all 122 reference modules. Its `GUESSES` list records every place this document initially fell short. |
+| **Reference** | `producers/reconcile/profile_ref.py` | Dependency-free (`hashlib` + `struct` only). Written from §3–§4 of this document without consulting `canon_unrebase`; it is what the runnable vectors' expected values come from. Agrees with `canon_unrebase` on all 122 reference modules. Its `GUESSES` list records every place this document initially fell short. `normalize()`/`digest()` implement §4.1–4.3; `normalize_te()`/`digest_te()` implement §4.4. |
+| Oracle | edk2 `BaseTools/Source/C/bin/GenFw` | Not an implementation of this profile — it performs the **forward** operation §4.4 reverses (`--rebase <addr>`, then `-t`). Used by `te-vectors.py` to produce expected answers no implementation here contributed to. |
 | Producer | edk2 fork, `BaseTools/.../BuildReport.py` (`-Y SBOM`) | Declares the digest and the profile value. |
 | — | CHIPSEC `scan_image` | A normalized-hash field has been *raised* as an idea in [chipsec/chipsec#2843](https://github.com/chipsec/chipsec/issues/2843) (open). CHIPSEC has **not** been asked to adopt this profile and has agreed to nothing; listed only so the idea's origin is traceable. |
 
@@ -397,3 +502,17 @@ Neither correction alters any published digest. Both were verified byte-identica
 modules — 122 from the OVMF reference and 369 from 17 Intel FSP binaries — before adoption: no real
 fixup target lands in a virtual-only tail, none falls outside every section, and no real module sets
 `IMAGE_FILE_RELOCS_STRIPPED`. Each is covered by a negative vector in §7.
+
+**2026-09-08 — the section-table pointer pair (§4.2).** `PointerToRelocations` and
+`PointerToLinenumbers` are now zeroed in every section header. They are COFF *object-file* fields
+and are zero in every linked image — 993 of 993 real modules measured — but they are not inert:
+GenFw's rebase stores the assigned load address as a `UINT64` across the pair of the first non-code
+section, under the comment *"Set base address into the first section header that doesn't point to
+code section"* (`BaseTools/Source/C/GenFw/GenFw.c:966-972`). A copy of the load address is exactly
+what §4 exists to remove, so leaving it made the digest placement-dependent for any toolchain whose
+rebase runs through that path.
+
+Found by the §4.4 round trip: normalizing a `GenFw --rebase`-produced TE reproduced the base-0 TE in
+every byte **except one**, and that byte was the second octet of this pair. Two implementations
+agreeing would never have surfaced it — both omitted the field. Zeroing it changes no real module's
+digest, and it is why §7's oracle matters more than agreement.

@@ -276,6 +276,18 @@ def canon_unrebase(pe_bytes):
                     # HIGH/LOW/HIGHADJ/ARM/etc. — not handled; fail closed so we never emit a
                     # partially-un-rebased (wrong) image as if it were canonical.
                     raise ValueError("unsupported relocation type %d" % e.type)
+    # PointerToRelocations / PointerToLinenumbers in every section header: COFF
+    # object-file fields, zero in every linked image, but GenFw's rebase stores the
+    # load address in the first non-code section's pair (GenFw.c:966-972). That is
+    # placement-dependent, so it must not survive. Free on all 993 real modules.
+    _nsec = struct.unpack_from("<H", buf, _fh + 2)[0]
+    _sec_tbl = _oh + struct.unpack_from("<H", buf, _fh + 16)[0]
+    for _i in range(_nsec):
+        _h = _sec_tbl + _i * 40
+        if _h + 40 > len(buf):
+            break
+        struct.pack_into("<Q", buf, _h + 24, 0)
+
     # Header normalization, as byte patches at their documented file offsets. Layout:
     #   e_lfanew @ 0x3C -> "PE\0\0" (4) -> COFF FILE_HEADER (20) -> OPTIONAL_HEADER
     #   FILE_HEADER.TimeDateStamp   @ fh + 4
