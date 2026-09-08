@@ -159,8 +159,9 @@ end of the image; an absent directory with `IMAGE_FILE_RELOCS_STRIPPED` set.
 > The RVA mapping above was the third instance of the same failure mode, and the sharpest. Earlier
 > revisions of this document specified `max(VirtualSize, SizeOfRawData)` — a rule reverse-engineered
 > from one parser's behaviour and then written down as normative, rather than derived from what the
-> file contains. Every implementation here inherited it and they agreed, because across 491 real
-> modules (122 OVMF, 369 from 17 Intel FSP binaries) **no** fixup target lands in a virtual-only tail
+> file contains. Every implementation here inherited it and they agreed, because across 366 real
+> PE32 modules (122 OVMF, 244 from 24 distinct Intel FSP images) **no** fixup target lands in a
+> virtual-only tail
 > and **none** falls outside every section. A rule can be wrong and unanimous at the same time. The
 > current rule was checked to produce byte-identical results on all 491 before it was adopted, so
 > this is a tightening of undefined behaviour, not a change to any value this profile has published.
@@ -498,14 +499,15 @@ relocations, and fails for one whose table was applied and then discarded, where
 would claim base 0 while its code still carried the load address. `IMAGE_FILE_RELOCS_STRIPPED`
 distinguishes the two; with it set and `B ≠ 0` the profile now emits no value.
 
-Neither correction alters any published digest. Both were verified byte-identical across 491 real
-modules — 122 from the OVMF reference and 369 from 17 Intel FSP binaries — before adoption: no real
+Neither correction alters any published digest. Both were verified byte-identical across 366 real
+PE32 modules — 122 from the OVMF reference and 244 from 24 distinct Intel FSP images — before
+adoption: no real
 fixup target lands in a virtual-only tail, none falls outside every section, and no real module sets
 `IMAGE_FILE_RELOCS_STRIPPED`. Each is covered by a negative vector in §7.
 
 **2026-09-08 — the section-table pointer pair (§4.2).** `PointerToRelocations` and
 `PointerToLinenumbers` are now zeroed in every section header. They are COFF *object-file* fields
-and are zero in every linked image — 993 of 993 real modules measured — but they are not inert:
+and are zero in every linked image — 757 of 757 real modules measured — but they are not inert:
 GenFw's rebase stores the assigned load address as a `UINT64` across the pair of the first non-code
 section, under the comment *"Set base address into the first section header that doesn't point to
 code section"* (`BaseTools/Source/C/GenFw/GenFw.c:966-972`). A copy of the load address is exactly
