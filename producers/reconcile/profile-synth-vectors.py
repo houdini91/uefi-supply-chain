@@ -46,10 +46,22 @@ REL_ABSOLUTE, REL_HIGHLOW, REL_DIR64, REL_HIGH = 0, 3, 10, 1
 
 
 def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
-             timestamp=0, checksum=0, truncate_at=None, odd_blocksize=False):
+             timestamp=0, checksum=0, truncate_at=None, odd_blocksize=False,
+             text_raw_size=None, text_praw_zero=False, text_va=None,
+             relocs_stripped=False):
     """A minimal but structurally valid PE whose .text holds two self-referential
     absolute pointers (ImageBase + own RVA), described by a .reloc block -- so
-    reversing the fixups is a real operation, not a no-op."""
+    reversing the fixups is a real operation, not a no-op.
+
+    The last four arguments deform the SECTION TABLE (or the stripped flag) rather
+    than the relocation data, to exercise s4.1's RVA -> file offset mapping:
+      text_raw_size   .text SizeOfRawData, so a fixup target falls in the
+                      virtual-only tail (no bytes on disk at that RVA)
+      text_praw_zero  .text PointerToRawData = 0: occupies memory, absent from file
+      text_va         move .text so its fixup targets match no section at all
+      relocs_stripped set IMAGE_FILE_RELOCS_STRIPPED (with with_reloc=False, the
+                      applied-then-discarded case that cannot be reversed)
+    """
     if pe_plus:
         magic, size_opt, ib_off, numrva_off, dd_off = MAGIC64, 112 + 16 * 8, 24, 108, 112
         rtype = REL_DIR64 if reloc_type is None else reloc_type
@@ -97,6 +109,18 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
         struct.pack_into("<I", buf, b + 12, va)            # VirtualAddress
         struct.pack_into("<I", buf, b + 16, sz)            # SizeOfRawData
         struct.pack_into("<I", buf, b + 20, raw)           # PointerToRawData
+
+    # s4.1 RVA-mapping deformations, applied to .text (section 0) only.
+    text_hdr = sec
+    if text_raw_size is not None:
+        struct.pack_into("<I", buf, text_hdr + 16, text_raw_size)
+    if text_praw_zero:
+        struct.pack_into("<I", buf, text_hdr + 20, 0)
+    if text_va is not None:
+        struct.pack_into("<I", buf, text_hdr + 12, text_va)
+    if relocs_stripped:
+        ch = struct.unpack_from("<H", buf, coff + 18)[0]
+        struct.pack_into("<H", buf, coff + 18, ch | 0x0001)   # IMAGE_FILE_RELOCS_STRIPPED
 
     rvas = ptr_rvas(pe_plus)
     for i, rva in enumerate(rvas):                         # the relocatable pointers
@@ -150,6 +174,30 @@ CASES = [
      "HIGH(1) fixup. Profile s4.1: any type other than 0/3/10 MUST emit no value rather "
      "than a partially-normalized image.",
      dict(image_base=0x00830000, pe_plus=True, reloc_type=REL_HIGH), False),
+    ("neg-fixup-in-virtual-only-tail",
+     "Rebased PE32+ whose .text SizeOfRawData stops before its second fixup target, putting "
+     "that target in the section's virtual-only tail -- present once loaded, absent from the "
+     "file. s4.1 maps an RVA only within SizeOfRawData. Earlier revisions specified "
+     "max(VirtualSize, SizeOfRawData) and mapped the target onto the NEXT section's bytes, "
+     "emitting a confident wrong value; all three implementations shared the fault.",
+     dict(image_base=0x0000000140000000, pe_plus=True, text_raw_size=0x8), False),
+    ("neg-fixup-section-without-raw-data",
+     "Rebased PE32+ whose target section has PointerToRawData = 0: it occupies memory but has "
+     "no bytes in the file. s4.1 requires PointerToRawData != 0 and SizeOfRawData != 0. The "
+     "widened rule mapped the fixup into the PE header itself.",
+     dict(image_base=0x0000000140000000, pe_plus=True, text_praw_zero=True), False),
+    ("neg-fixup-outside-every-section",
+     "Rebased PE32+ with .text moved so its fixup targets match no section. s4.1: an RVA "
+     "matching no section is a failure. Some PE parsers instead fall back to treating the RVA "
+     "itself as a file offset; the profile does not.",
+     dict(image_base=0x0000000140000000, pe_plus=True, text_va=0x9000), False),
+    ("neg-relocations-stripped",
+     "Rebased PE32+ with no relocation directory and IMAGE_FILE_RELOCS_STRIPPED set: the "
+     "fixups were applied and the table then discarded, so the placement cannot be reversed. "
+     "Distinct from a module that genuinely has no relocations (flag clear), which still "
+     "normalizes -- see pe32plus-no-reloc-table-rebased.",
+     dict(image_base=0x0000000140000000, pe_plus=True, with_reloc=False,
+          relocs_stripped=True), False),
 ]
 
 
@@ -241,6 +289,22 @@ def main():
     if a.check:
         return check(a.check)
     doc = emit()
+    if a.out and os.path.exists(a.out):
+        # MERGE, never clobber. This script generates the synthetic vectors only; the
+        # real-module vectors need an OVMF build to produce, so they were added by a
+        # separate step and live in the same file. A plain overwrite silently deleted
+        # them -- and did so for every --emit run before this guard existed.
+        prior = json.load(open(a.out))
+        mine = {v["id"] for v in doc["vectors"]}
+        kept = [v for v in prior.get("vectors", []) if v["id"] not in mine]
+        if kept:
+            doc["vectors"].extend(kept)
+            doc["description"] = prior.get("description", doc["description"])
+            for k in ("real_module_note",):
+                if k in prior:
+                    doc[k] = prior[k]
+            sys.stderr.write("profile-synth-vectors: preserved %d non-synthetic vector(s): %s\n"
+                             % (len(kept), ", ".join(v["id"] for v in kept)))
     txt = json.dumps(doc, indent=2) + "\n"
     if a.out:
         open(a.out, "w").write(txt)
