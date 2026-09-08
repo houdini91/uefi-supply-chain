@@ -215,7 +215,13 @@ only. A component **MUST NOT** carry hashes under more than one profile without 
 
 **Versioning.** The version is part of the identifier; there is no unversioned form. A consumer
 **MUST** match identifiers exactly and **MUST NOT** treat `uefi-pe-rebase0` as equal to, or a prefix
-of, `uefi-pe-rebase0/v1`. A change to §3 or §4 that alters any digest requires a new version.
+of, `uefi-pe-rebase0/v1`. A change to §3 or §4 that alters a digest a conforming implementation
+could **correctly** have produced requires a new version. A change that narrows behaviour the
+document left undefined, or that replaces a rule which produced a demonstrably wrong value, is
+errata against the current version: it is recorded in §12.1 with the evidence that no real module's
+digest moved, and it never silently widens what a value means. The distinction matters because the
+identifier is the whole contract — a version bump for a fix that changes nothing observable strands
+every value already published under the old one.
 
 **Absence.** A hash carrying **no** profile identifier **MUST** be read as the digest of the bytes
 **as found**, with no transformation applied — i.e. as `raw-pe32`. It **MUST NOT** be read as
@@ -367,3 +373,27 @@ Draft. Nothing here has been proposed to any standards body. It is written to be
 a normalization can be *referenced* rather than *re-specified* — which is precisely the objection
 raised in [open-source-firmware/sbom#3](https://github.com/open-source-firmware/sbom/issues/3):
 that a particular PE transformation should not become frozen API inside a specification.
+
+### 12.1 Errata against `uefi-pe-rebase0/v1`
+
+Corrections that narrow previously undefined or incorrect behaviour. None of them changes a digest
+any conforming implementation could correctly have produced, so the identifier stays `…/v1` — see
+the versioning rule in §5.
+
+**2026-09-08 — the RVA to file-offset mapping (§4.1).** Earlier text specified a section's span as
+`max(VirtualSize, SizeOfRawData)`. That rule was reverse-engineered from one PE parser rather than
+derived from the file, and it mapped an RVA in a section's virtual-only tail — which has no bytes on
+disk — onto whatever followed it in the file, normally the next section, yielding a confident wrong
+value. A section with `PointerToRawData == 0` mapped fixups into the PE header. The mapping is now
+bounded by `SizeOfRawData` and requires the section to have raw data; anything else is a failure.
+
+**2026-09-08 — a stripped relocation table is not an absent one (§4.1).** Earlier text treated every
+missing relocation directory as "nothing to reverse". That holds for a module that genuinely has no
+relocations, and fails for one whose table was applied and then discarded, where the returned image
+would claim base 0 while its code still carried the load address. `IMAGE_FILE_RELOCS_STRIPPED`
+distinguishes the two; with it set and `B ≠ 0` the profile now emits no value.
+
+Neither correction alters any published digest. Both were verified byte-identical across 491 real
+modules — 122 from the OVMF reference and 369 from 17 Intel FSP binaries — before adoption: no real
+fixup target lands in a virtual-only tail, none falls outside every section, and no real module sets
+`IMAGE_FILE_RELOCS_STRIPPED`. Each is covered by a negative vector in §7.
