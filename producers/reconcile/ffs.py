@@ -160,6 +160,33 @@ def load_sbom_hashes(sbom_path):
     return out
 
 
+def _profile_rva_to_offset(rva, buf, fh, oh):
+    """Profile s4.1 RVA -> file offset, read from the RAW section table.
+
+    Deliberately NOT pefile's get_offset_from_rva. pefile widens a section's span to
+    max(VirtualSize, SizeOfRawData), substitutes VirtualSize when SizeOfRawData looks
+    unrealistic, clamps to the next section, and — when nothing matches at all — returns
+    the RVA itself as the offset. Those are sensible heuristics for reading damaged files
+    and wrong for computing an identity: this function must be exact or fail. Delegating
+    it also meant this file implemented pefile rather than the profile.
+    """
+    n = struct.unpack_from("<H", buf, fh + 2)[0]
+    size_opt = struct.unpack_from("<H", buf, fh + 16)[0]
+    base = oh + size_opt
+    for i in range(n):
+        s = base + i * 40
+        if s + 40 > len(buf):
+            raise ValueError("section table past end of image")
+        vaddr = struct.unpack_from("<I", buf, s + 12)[0]
+        rsize = struct.unpack_from("<I", buf, s + 16)[0]
+        praw = struct.unpack_from("<I", buf, s + 20)[0]
+        if praw == 0 or rsize == 0:
+            continue
+        if vaddr <= rva < vaddr + rsize:
+            return praw + (rva - vaddr)
+    raise ValueError("rva %#x maps to no section with raw data" % rva)
+
+
 def canon_unrebase(pe_bytes):
     """Un-rebase a PE image back to ImageBase 0 (undo the flash relocation) and zero
     ImageBase/TimeDateStamp/CheckSum — so an XIP/PEI module's rebased in-flash bytes can be fairly
@@ -183,12 +210,19 @@ def canon_unrebase(pe_bytes):
     pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_BASERELOC']])
     base = pe.OPTIONAL_HEADER.ImageBase
     buf = bytearray(pe.__data__)
+    _e = struct.unpack_from("<I", buf, 0x3C)[0]
+    _fh = _e + 4
+    _oh = _fh + 20
     # A non-zero ImageBase with NO relocation table means the module has no relocations at all:
     # being rebased to its flash address changed ONLY the ImageBase header field, nothing in
     # code/data. Zeroing ImageBase/TimeDateStamp/CheckSum (below) is therefore the exact, faithful
     # canonicalization. A module whose reloc table was STRIPPED after rebasing would fail to match
     # here — flagged modified, never a false pass. Only when a reloc table is present is there
     # anything to reverse.
+    # That reasoning is sound for reconciliation (a mismatch is safe) but not for publishing an
+    # IDENTITY: a stripped module's value would claim base 0 while its code still carries the load
+    # address. The two cases are distinguishable — IMAGE_FILE_RELOCS_STRIPPED (0x0001) in
+    # FileHeader.Characteristics — so absence still emits, removal now fails (profile s4.1, G10).
     # A relocation directory that is DECLARED but that pefile would not parse must fail
     # closed. Without this the loop below is simply skipped and the function returns a
     # header-only normalization — indistinguishable from a module that genuinely has no
@@ -202,8 +236,6 @@ def canon_unrebase(pe_bytes):
         # without raising, so `len(_dd) > 5` is False and the truncation looks like absence.
         # Second fail-open of this class, found by the conformance floor (profile s4.1:
         # "an unreadable directory is a failure, not an absence").
-        _e = struct.unpack_from("<I", buf, 0x3C)[0]
-        _oh = _e + 4 + 20
         _magic = struct.unpack_from("<H", buf, _oh)[0]
         _numrva_off, _dd_off = ((_oh + 92, _oh + 96) if _magic == 0x10B else (_oh + 108, _oh + 112))
         if _numrva_off + 4 > len(buf):
@@ -212,6 +244,8 @@ def canon_unrebase(pe_bytes):
             raise ValueError("data directory truncated before the base-relocation entry")
         _dd = pe.OPTIONAL_HEADER.DATA_DIRECTORY
         _declared = len(_dd) > 5 and _dd[5].VirtualAddress and _dd[5].Size
+        if not _declared and (struct.unpack_from("<H", buf, _fh + 18)[0] & 0x0001):
+            raise ValueError("relocations stripped with ImageBase != 0; not reversible")
         if _declared and not getattr(pe, "DIRECTORY_ENTRY_BASERELOC", None):
             raise ValueError(
                 "relocation directory declared (rva %#x size %d) but no entries were parsed — "
@@ -227,9 +261,7 @@ def canon_unrebase(pe_bytes):
             for e in blk.entries:
                 if e.type == 0:            # IMAGE_REL_BASED_ABSOLUTE — padding, skip
                     continue
-                off = pe.get_offset_from_rva(e.rva)
-                if off is None:
-                    raise ValueError("relocation rva %#x maps to no file offset" % e.rva)
+                off = _profile_rva_to_offset(e.rva, buf, _fh, _oh)
                 if e.type == 3:            # HIGHLOW (32-bit)
                     if off + 4 > len(buf):
                         raise ValueError("HIGHLOW reloc past end of image")

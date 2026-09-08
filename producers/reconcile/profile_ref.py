@@ -24,10 +24,16 @@ import struct
 # for the document.
 # ---------------------------------------------------------------------------
 GUESSES = [
-    ("G1", "s4.1 says 'at the file offset corresponding to its RVA' but never defines the "
-           "RVA->file-offset mapping. Chose: find the section whose "
-           "[VirtualAddress, VirtualAddress+max(VirtualSize,SizeOfRawData)) contains the RVA, "
-           "then offset = PointerToRawData + (rva - VirtualAddress). Ties/overlaps: first match."),
+    ("G1", "s4.1 said 'at the file offset corresponding to its RVA' but never defined the "
+           "RVA->file-offset mapping. First chose max(VirtualSize,SizeOfRawData) as the span -- "
+           "reverse-engineered from pefile rather than derived from the file -- and that guess was "
+           "then written into the document as normative. CORRECTED: a section maps an rva only if "
+           "it has raw bytes (PointerToRawData != 0, SizeOfRawData != 0) and "
+           "VirtualAddress <= rva < VirtualAddress+SizeOfRawData; offset = "
+           "PointerToRawData + (rva - VirtualAddress); overlaps: first match in table order. "
+           "The widened span mapped an rva in a section's virtual-only tail onto the NEXT "
+           "section's bytes and returned a confident wrong value. Verified byte-identical on all "
+           "491 real modules before adopting, so no published value changed."),
     ("G2", "s4.1 never describes the relocation directory layout. Chose the PE/COFF standard: "
            "a sequence of blocks {PageRVA:u32, BlockSize:u32} followed by (BlockSize-8)/2 "
            "u16 entries, each type=entry>>12, offset=entry&0xFFF, target RVA=PageRVA+offset."),
@@ -52,9 +58,17 @@ GUESSES = [
            "header-only value -- the same fail-open canon_unrebase had. Two implementations "
            "agreeing on the reference did not catch it because both shared the blind spot. "
            "Now: fail. Also: an odd BlockSize was unspecified and emitted a value; now: fail."),
+    ("G10", "FOUND BY REVIEW, second round. G4 treated every missing directory as an absence and "
+            "emitted a header-only value. That is right for a module that genuinely has no "
+            "relocations -- 1 of 491 real modules -- but wrong for one whose table was applied and "
+            "then STRIPPED: its code still carries the load address, and the value would claim "
+            "base 0. The two cases are distinguishable: IMAGE_FILE_RELOCS_STRIPPED (0x0001) in "
+            "FileHeader.Characteristics at fh+18. Now: absent + flag clear -> value; absent + flag "
+            "set with B != 0 -> fail. No real module sets the flag, so nothing observed changed."),
 ]
 
 ABSOLUTE, HIGHLOW, DIR64 = 0, 3, 10
+RELOCS_STRIPPED = 0x0001          # IMAGE_FILE_RELOCS_STRIPPED, FileHeader.Characteristics
 MAGIC_PE32, MAGIC_PE32PLUS = 0x10B, 0x20B
 
 
@@ -85,12 +99,18 @@ def _sections(buf, fh, oh):
 
 
 def _rva_to_offset(rva, sections):
-    """[G1] first section whose virtual span contains rva."""
-    for va, vsize, praw, rsize in sections:
-        span = max(vsize, rsize)
-        if va <= rva < va + span:
+    """[G1] s4.1: first section that has raw bytes in the file and contains rva.
+
+    Bounded by SizeOfRawData, not by max(VirtualSize, SizeOfRawData): an rva in a
+    section's virtual-only tail has no bytes on disk, and a widened span would map
+    it onto whatever follows in the file -- normally the next section.
+    """
+    for va, _vsize, praw, rsize in sections:
+        if praw == 0 or rsize == 0:
+            continue
+        if va <= rva < va + rsize:
             return praw + (rva - va)
-    raise NotNormalizable("rva %#x maps to no section" % rva)
+    raise NotNormalizable("rva %#x maps to no section with raw data" % rva)
 
 
 def normalize(preimage: bytes) -> bytes:
@@ -140,6 +160,13 @@ def normalize(preimage: bytes) -> bytes:
             reloc_rva = _u32(buf, dd_off + 5 * 8)
             reloc_size = _u32(buf, dd_off + 5 * 8 + 4)
             have_dir = reloc_rva != 0 and reloc_size != 0                 # [G4]
+        # [G10] Absence and removal are different facts. With no directory and
+        # IMAGE_FILE_RELOCS_STRIPPED set, the fixups were applied and the table then
+        # discarded: nothing records which words were shifted, so the placement cannot
+        # be reversed. Emitting a value here would return an image whose code still
+        # carries its load address while its header claims base 0.
+        if not have_dir and (_u16(buf, fh + 18) & RELOCS_STRIPPED):
+            raise NotNormalizable("relocations stripped with ImageBase != 0; not reversible")
         if have_dir:
             sections = _sections(buf, fh, oh)
             start = _rva_to_offset(reloc_rva, sections)                   # [G1][G5]

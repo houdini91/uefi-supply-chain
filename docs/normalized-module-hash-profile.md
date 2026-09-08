@@ -75,23 +75,39 @@ Let `B` = `OPTIONAL_HEADER.ImageBase`. If `B == 0` there is nothing to reverse; 
 and each entry is 40 bytes, with `VirtualSize` at `+8`, `VirtualAddress` at `+12`, `SizeOfRawData`
 at `+16` and `PointerToRawData` at `+20`.
 
-**Mapping an RVA to a file offset.** Find the first section for which
-`VirtualAddress ≤ rva < VirtualAddress + max(VirtualSize, SizeOfRawData)`; the offset is
-`PointerToRawData + (rva − VirtualAddress)`. An RVA matching no section is a failure (below).
-Where sections overlap, the first match in table order wins.
+**Mapping an RVA to a file offset.** A section maps an RVA only if it has bytes in the file:
+`PointerToRawData ≠ 0` **and** `SizeOfRawData ≠ 0`. For such a section the RVA maps if
+`VirtualAddress ≤ rva < VirtualAddress + SizeOfRawData`, and the offset is
+`PointerToRawData + (rva − VirtualAddress)`. Where sections overlap, the first match in table order
+wins. An RVA matching no section is a failure (below) — including one that falls in a section's
+**virtual-only tail**, the region past `SizeOfRawData` that exists once loaded but has no bytes on
+disk.
 
 > This mapping is the single most likely source of divergence between two implementations, and PE
-> parsers differ on it in practice. It is pinned here rather than left to "the file offset
-> corresponding to its RVA".
+> parsers differ on it in practice: several widen the span to `max(VirtualSize, SizeOfRawData)`,
+> substitute `VirtualSize` when `SizeOfRawData` looks unrealistic, clamp the span to the next
+> section's `VirtualAddress`, or fall back to treating the RVA itself as the offset when nothing
+> matches. Those behaviours are tuned for reading damaged files, not for computing an identity. A
+> widened span is the dangerous one: it maps an RVA past the raw data onto whatever bytes follow it
+> in the file — normally the *next* section's — and yields a confident, wrong value. The rule above
+> is bounded by what is actually in the file, so it is exact or it fails. It is pinned here so an
+> implementation follows this document rather than whichever parser it happens to link.
 
 **Locating the relocation directory.** `NumberOfRvaAndSizes` is the `uint32` at `oh + 92` (PE32) or
 `oh + 108` (PE32+); the data directory array begins at `oh + 96` / `oh + 112`. The base-relocation
 directory is index **5**, an 8-byte pair `{VirtualAddress: uint32, Size: uint32}`.
 
 The directory is **absent** — meaning there is genuinely nothing to reverse — if and only if
-`NumberOfRvaAndSizes ≤ 5`, or its `VirtualAddress` is `0`, or its `Size` is `0`. In that case
-§4.2 alone canonicalizes the image: being placed at a load address changed only the `ImageBase`
-header field.
+`NumberOfRvaAndSizes ≤ 5`, or its `VirtualAddress` is `0`, or its `Size` is `0`, **and**
+`IMAGE_FILE_RELOCS_STRIPPED` (`0x0001`) is clear in `FileHeader.Characteristics`, the `uint16` at
+`fh + 18`. In that case §4.2 alone canonicalizes the image: the module has no relocations, so being
+placed at a load address changed only the `ImageBase` header field and nothing in code or data.
+
+With `B ≠ 0`, no directory, and `IMAGE_FILE_RELOCS_STRIPPED` **set**, the fixups were applied and
+the table then discarded. Nothing left in the image records which words were shifted, so the
+placement cannot be reversed: fail, and emit no value. Emitting one would return an image whose
+code still carries its load address while its header claims base 0 — the exact shape §2 forbids.
+Absence and removal are different facts about a module, and only absence is safe.
 
 **Walking the directory.** From the directory's first byte for exactly `Size` bytes, a sequence of
 blocks:
@@ -116,8 +132,9 @@ that ends before `NumberOfRvaAndSizes` or before data-directory index 5 can be r
 **unreadable** directory is a failure, not an absence — see the callout below). An unsupported
 relocation type; a `BlockSize` below 8, **odd**, or extending past the directory; a directory
 extending past the end of the image; an RVA (of the directory or of any fixup target) that maps to no
-section; a fixup target whose 4 or 8 bytes would run past the end of the image; a section table
-extending past the end of the image.
+section, including one landing in a virtual-only tail or in a section with no raw data; a fixup
+target whose 4 or 8 bytes would run past the end of the image; a section table extending past the
+end of the image; an absent directory with `IMAGE_FILE_RELOCS_STRIPPED` set.
 
 > **A declared or unreadable directory is a failure, not an absence.** Two implementations in this
 > repo each had a version of this fault. The pefile-based one delegated parsing to a library that
@@ -128,6 +145,15 @@ extending past the end of the image.
 > while both carried the fault, because no reference module triggers it. Agreement between
 > implementations is not evidence about paths neither exercises; that is what the negative vectors
 > in §7 are for.
+>
+> The RVA mapping above was the third instance of the same failure mode, and the sharpest. Earlier
+> revisions of this document specified `max(VirtualSize, SizeOfRawData)` — a rule reverse-engineered
+> from one parser's behaviour and then written down as normative, rather than derived from what the
+> file contains. Every implementation here inherited it and they agreed, because across 491 real
+> modules (122 OVMF, 369 from 17 Intel FSP binaries) **no** fixup target lands in a virtual-only tail
+> and **none** falls outside every section. A rule can be wrong and unanimous at the same time. The
+> current rule was checked to produce byte-identical results on all 491 before it was adopted, so
+> this is a tightening of undefined behaviour, not a change to any value this profile has published.
 
 > A module whose relocation table was *stripped after* rebasing will not reproduce its declared
 > digest. That is the intended behaviour — it is reported as a mismatch, never silently accepted.
