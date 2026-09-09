@@ -12,8 +12,17 @@ deliberately small, versioned, and owned by nobody's format.
 > `uefi-pe-rebase0.v1`, and §5 fixes exactly which strings a consumer accepts. Whether the wider
 > ecosystem adopts that spelling — and whether it prefers a `gitoid:blob:sha256:…` or
 > `swh:1:cnt:…` style — is a community decision this document does not pre-empt. The one hard
-> constraint is that the value be expressible as a URI, because SPDX 3.0's
-> `contentIdentifierValue` is an `anyURI` (verified against the upstream model, 2026-09-09).
+> constraint is that the value be expressible as a URI — so the identifier is unambiguous, cannot
+> collide with one defined elsewhere, and can be split from the digest without knowing which
+> profile it names.
+>
+> That constraint was originally adopted for a different reason: SPDX 3.0's
+> `contentIdentifierValue` is an `anyURI`, so a URI-shaped value could occupy the
+> `ContentIdentifier` slot beside `Hash`. **That route is closed.** `spdx-model.ttl` constrains
+> `contentIdentifierType` with SHACL `sh:in` to exactly `gitoid` and `swhid`, and `minCount 1`
+> makes it required, so a third type does not validate (verified against the upstream model,
+> 2026-09-09). The class is right and the value type is right; the type vocabulary is shut. The
+> URI shape is kept because it is good practice on its own, not because that slot is reachable.
 >
 > That constraint is why the version is spelled `.v1` and not `/v1`. A URI scheme is
 > `ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )` — a `/` is not permitted, so `uefi-pe-rebase0/v1:…`
