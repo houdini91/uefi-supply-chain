@@ -4,7 +4,7 @@
 > normalization is byte patches (`7a28f72`), a dependency-free second implementation
 > `profile_ref.py` reproduces all 122 reference modules (`7cf8ae2`), the profile document closes the
 > eight gaps that implementation found, runnable vectors ship inputs inline, and the gate refuses
-> cross-profile comparison (`28c6f53`). The identifier is `uefi-pe-rebase0/v1` everywhere (the
+> cross-profile comparison (`28c6f53`). The identifier is `uefi-pe-rebase0.v1` everywhere (the
 > `uefipe` placeholder below is superseded). Sections describing Track 0 as future work are kept as
 > the record of the plan, not the state. Written after re-reading both live upstream threads. Nothing here is
 > filed or sent. Companion to [`CHIPSEC-INTEGRATION.md`](CHIPSEC-INTEGRATION.md) (Track B) and the
@@ -112,7 +112,7 @@ published in this repo and linkable from both upstream threads. Not owned by CHI
 which is exactly why it can be referenced by both.
 
 **Naming.** `genfw-rebase-0` is edk2-flavoured and `edk2:`-namespaced. Needs a neutral, versioned id —
-proposal: **`uefi-pe-rebase0/v1`** (keep emitting `edk2:hashCanonicalForm` as an alias for one release so
+proposal: **`uefi-pe-rebase0.v1`** (keep emitting `edk2:hashCanonicalForm` as an alias for one release so
 the reference SBOM and the 26 fixtures do not have to be re-cut immediately).
 
 **Spec content** (derived from the implemented behaviour, not invented):
@@ -220,7 +220,7 @@ independently worth doing and each one strengthens an upstream argument.
 | D1 | Byte-patch normalization (from Track 0) replaces parse-and-re-serialize | makes the profile implementable by anyone; retires the ossification objection in code |
 | D2 | Carry the profile id through the **SPDX** converter (`annotations[]`) | the SPDX half of Hughes' question, demonstrated not asserted |
 | D3 | Carry it through **`coswid-emit.py`** | today our coSWID has exactly the ambiguity we are asking him to fix — fix ours first |
-| D4 | Emit the neutral `uefi-pe-rebase0/v1` id (alias the `edk2:` one) | a producer-neutral identifier is the thing a spec can reference |
+| D4 | Emit the neutral `uefi-pe-rebase0.v1` id (alias the `edk2:` one) | a producer-neutral identifier is the thing a spec can reference |
 | D5 | **Gate report: refuse to compare across an unknown profile** | closes a genuine soundness gap; turns "we assume both sides agree" into a checked fact |
 | D6 | Publish the test vectors + a `make verify-profile` target | what a second implementer needs; also the CHIPSEC PR's evidence |
 

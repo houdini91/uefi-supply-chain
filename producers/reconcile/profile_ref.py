@@ -254,7 +254,7 @@ def _te_rva_to_offset(rva, sections, tso):
 
 
 def normalize_te(preimage: bytes) -> bytes:
-    """Profile `uefi-te-rebase0/v1` -- the TE sibling of `uefi-pe-rebase0/v1`.
+    """Profile `uefi-te-rebase0.v1` -- the TE sibling of `uefi-pe-rebase0.v1`.
 
     A TE header carries no TimeDateStamp and no CheckSum, so the PE32 profile's s4.2
     reduces to a single field here: ImageBase. Everything else is the same operation.
@@ -329,7 +329,7 @@ def digest(preimage: bytes) -> str:
 
 
 def digest_te(preimage: bytes) -> str:
-    """`uefi-te-rebase0/v1` digest — SHA-256, lowercase hex."""
+    """`uefi-te-rebase0.v1` digest — SHA-256, lowercase hex."""
     return hashlib.sha256(normalize_te(preimage)).hexdigest()
 
 

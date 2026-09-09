@@ -8,8 +8,8 @@
   },
   "supported_hash_profiles": {
     "_comment": "Hash canonicalization profiles this verifier IMPLEMENTS, i.e. can re-derive from shipped bytes. A declared digest is comparable to a re-derived one ONLY when both used the same preimage transformation. Keyed by the value the SBOM carries in edk2:hashCanonicalForm. Spec: docs/normalized-module-hash-profile.md. An SBOM declaring a profile absent from this map is NOT comparable and the byte-integrity report fails and names it — rather than comparing digests over different preimages and calling the result a match or a tamper.",
-    "genfw-rebase-0": "Alias for uefi-pe-rebase0/v1 -- the spelling shipped SBOMs carry today (edk2:hashCanonicalForm). Same profile, same digests; retained because it is already in the reference SBOM.",
-    "uefi-pe-rebase0/v1": "Canonical identifier for the profile in docs/normalized-module-hash-profile.md. Equivalent to genfw-rebase-0, which is the spelling the edk2 -Y SBOM generator emits today in edk2:hashCanonicalForm; both are accepted."
+    "genfw-rebase-0": "Alias for uefi-pe-rebase0.v1 -- the spelling shipped SBOMs carry today (edk2:hashCanonicalForm). Same profile, same digests; retained because it is already in the reference SBOM.",
+    "uefi-pe-rebase0.v1": "Canonical identifier for the profile in docs/normalized-module-hash-profile.md. Equivalent to genfw-rebase-0, which is the spelling the edk2 -Y SBOM generator emits today in edk2:hashCanonicalForm; both are accepted."
   },
   "byte_integrity_exempt": {
     "_comment": "Reviewed exemptions for the byte-integrity gate — {\"ModuleName\": \"reason it genuinely cannot be byte-verified (e.g. a TE-only or compressed section) + reviewer + date\"}. EMPTY today: the reference build byte-verifies all 122 PE-carrying modules. A module is added ONLY after human review; anything un-verifiable and NOT listed here fails the gate and is named."

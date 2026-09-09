@@ -1,5 +1,5 @@
 {
-  "profile": "uefi-pe-rebase0/v1",
+  "profile": "uefi-pe-rebase0.v1",
   "description": "Conformance vectors for the normalized UEFI PE32 module hash. A conformant implementation, given the same as-found PE32 bytes, reproduces every sha256_norm.",
   "image_digest": "sha256:7965c31705bb824133d173fb9afe64d649005df2d4fc8878274ef25162fb8f37",
   "sbom": "inputs/sbom.cdx.json",

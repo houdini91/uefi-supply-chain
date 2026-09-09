@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""te-vectors — conformance vectors for `uefi-te-rebase0/v1` (profile s4.4).
+"""te-vectors — conformance vectors for `uefi-te-rebase0.v1` (profile s4.4).
 
 These vectors have something the PE32 ones never had: an **independent oracle**.
 
@@ -34,7 +34,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import profile_ref  # noqa: E402
 
-PROFILE = "uefi-te-rebase0/v1"
+PROFILE = "uefi-te-rebase0.v1"
 TE_HDR = 40
 
 # Smallest of the reference PEIMs, so the inline inputs stay small. Any rebased
@@ -169,7 +169,7 @@ def emit(edk2):
                      % v["id"])
     return {
         "profile": PROFILE,
-        "description": "Conformance vectors for the TE sibling profile (uefi-te-rebase0/v1, "
+        "description": "Conformance vectors for the TE sibling profile (uefi-te-rebase0.v1, "
                        "profile s4.4). Inputs are shipped inline (base64) and were produced by "
                        "edk2's own GenFw, which performs the forward operation these vectors "
                        "reverse. The rebased entries MUST normalize to the same digest as "

@@ -26,7 +26,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import profile_ref  # noqa: E402  the from-the-document reference implementation
 
-PROFILE = "uefi-pe-rebase0/v1"
+PROFILE = "uefi-pe-rebase0.v1"
 
 FILE_SIZE = 0x600
 E_LFANEW = 0x80

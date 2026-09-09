@@ -1,5 +1,5 @@
 {
-  "profile": "uefi-pe-rebase0/v1",
+  "profile": "uefi-pe-rebase0.v1",
   "description": "Runnable conformance vectors: inputs are shipped inline (base64), so they can be executed without reproducing any firmware build. Covers paths the OVMF reference cannot reach (PE32, HIGHLOW, non-zero TimeDateStamp/CheckSum, the emit-no-value cases) PLUS a representative subset of real rebased modules from that reference. Expected values are produced by producers/reconcile/profile_ref.py, an implementation written from the profile document alone -- NOT by the implementation under test.",
   "tool": "producers/reconcile/profile-synth-vectors.py",
   "expected_by": "producers/reconcile/profile_ref.py",

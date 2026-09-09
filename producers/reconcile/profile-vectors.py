@@ -30,7 +30,7 @@ from ffs import (  # noqa: E402
     pe32_from_ffs, fmmt_extract, canon_unrebase, load_sbom_hashes, pefile,
 )
 
-PROFILE_ID = "uefi-pe-rebase0/v1"   # PLACEHOLDER — naming is a community decision, see
+PROFILE_ID = "uefi-pe-rebase0.v1"   # PLACEHOLDER — naming is a community decision, see
                                     # planning/normalized-module-identity.html
 
 

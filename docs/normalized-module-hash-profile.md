@@ -9,11 +9,21 @@ specification, and does not have to be inferred from any one implementation's so
 deliberately small, versioned, and owned by nobody's format.
 
 > **The identifier is settled here, not in the ecosystem.** Within this document the profile is
-> `uefi-pe-rebase0/v1`, and §5 fixes exactly which strings a consumer accepts. Whether the wider
+> `uefi-pe-rebase0.v1`, and §5 fixes exactly which strings a consumer accepts. Whether the wider
 > ecosystem adopts that spelling — and whether it prefers a `gitoid:blob:sha256:…` or
 > `swh:1:cnt:…` style — is a community decision this document does not pre-empt. The one hard
 > constraint is that the value be expressible as a URI, because SPDX 3.0's
-> `contentIdentifierValue` is an `anyURI`.
+> `contentIdentifierValue` is an `anyURI` (verified against the upstream model, 2026-09-09).
+>
+> That constraint is why the version is spelled `.v1` and not `/v1`. A URI scheme is
+> `ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )` — a `/` is not permitted, so `uefi-pe-rebase0/v1:…`
+> has no valid scheme and is at best a relative reference carrying no namespace. It is also why the
+> version stays *inside* the pre-colon token rather than becoming a field of its own as in
+> `swh:1:cnt:…`: §5 requires a consumer to match the identifier exactly, and a separate version
+> field invites matching on the base name alone, which is precisely the comparison across
+> incompatible profiles this document exists to prevent. Note the scheme is syntactically valid but
+> **unregistered** — `gitoid` is in the IANA URI scheme registry and SWHID is ISO/IEC DIS 18670;
+> this one is neither.
 
 ---
 
@@ -38,8 +48,8 @@ This document defines **two** profiles, one per executable format:
 
 | Format | Section type | Profile |
 |---|---|---|
-| PE32 / PE32+ | `EFI_SECTION_PE32` | **`uefi-pe-rebase0/v1`** — §4.1–4.3 |
-| TE (Terse Executable) | `EFI_SECTION_TE` | **`uefi-te-rebase0/v1`** — §4.4 |
+| PE32 / PE32+ | `EFI_SECTION_PE32` | **`uefi-pe-rebase0.v1`** — §4.1–4.3 |
+| TE (Terse Executable) | `EFI_SECTION_TE` | **`uefi-te-rebase0.v1`** — §4.4 |
 
 They are **siblings, not versions**. A TE is produced from a PE by discarding its header prologue,
 so the two normalize different preimages and their digests are never equal, even for the same
@@ -214,7 +224,7 @@ whole profile, so it is removed whether or not the local toolchain produces it. 
 
 `SHA-256` over the resulting bytes. Lowercase hex.
 
-### 4.4 Sibling profile: TE images — `uefi-te-rebase0/v1`
+### 4.4 Sibling profile: TE images — `uefi-te-rebase0.v1`
 
 **Preimage.** The `EFI_SECTION_TE` payload with the common section header removed (§3 applies
 unchanged) — that is, the TE image beginning with its `VZ` signature.
@@ -278,7 +288,7 @@ GenFw writes that non-zero-address-with-zero-size deliberately, *because* TE lac
 `PointerToRelocations`/`PointerToLinenumbers` in every section header (§4.2), then zero the 8-byte
 `ImageBase` at offset 16. Digest as §4.3.
 
-**Identifier.** `uefi-te-rebase0/v1`.
+**Identifier.** `uefi-te-rebase0.v1`.
 
 > **This profile has an oracle the PE32 one never had.** Its vectors are not merely two
 > implementations agreeing: `GenFw --rebase <addr>` followed by `GenFw -t` produces a genuinely
@@ -293,20 +303,20 @@ A producer declaring a digest **MUST** state which profile produced it.
 
 | Identifier | Status | Meaning |
 |---|---|---|
-| **`uefi-pe-rebase0/v1`** | **canonical** | The full profile above. A verifier reproduces the digest by applying §4.1–4.3 to the shipped bytes. |
-| **`uefi-te-rebase0/v1`** | **canonical** | The TE sibling, §4.4. **Never comparable to `uefi-pe-rebase0/v1`**, even for the same module: a TE is a PE with its header prologue discarded, so the two digests differ by construction. |
-| `genfw-rebase-0` | **alias** | What the edk2 `-Y SBOM` generator emits today, in `edk2:hashCanonicalForm`, for this same profile. Accept as equivalent to `uefi-pe-rebase0/v1`. Retained because it is already present in shipped SBOMs; new producers should emit the canonical form. |
+| **`uefi-pe-rebase0.v1`** | **canonical** | The full profile above. A verifier reproduces the digest by applying §4.1–4.3 to the shipped bytes. |
+| **`uefi-te-rebase0.v1`** | **canonical** | The TE sibling, §4.4. **Never comparable to `uefi-pe-rebase0.v1`**, even for the same module: a TE is a PE with its header prologue discarded, so the two digests differ by construction. |
+| `genfw-rebase-0` | **alias** | What the edk2 `-Y SBOM` generator emits today, in `edk2:hashCanonicalForm`, for this same profile. Accept as equivalent to `uefi-pe-rebase0.v1`. Retained because it is already present in shipped SBOMs; new producers should emit the canonical form. |
 | `raw-pe32` | degraded | The digest is over the PE32 payload with **no** normalization. Emitted when a producer cannot obtain a base-0 form. **Not** comparable to either of the above. |
 
 **Scope.** An identifier attached to a *component* (CycloneDX `properties[]`, coSWID `file-entry`)
 applies to **every** hash on that component. The reference SBOM carries one `edk2:hashCanonicalForm`
 per module beside both a SHA-256 and a SHA-512; both digests are over the same normalized bytes. An
-identifier embedded in a self-describing value (`uefi-pe-rebase0/v1:sha256:…`) applies to that value
+identifier embedded in a self-describing value (`uefi-pe-rebase0.v1:sha256:…`) applies to that value
 only. A component **MUST NOT** carry hashes under more than one profile without a per-hash form.
 
 **Versioning.** The version is part of the identifier; there is no unversioned form. A consumer
 **MUST** match identifiers exactly and **MUST NOT** treat `uefi-pe-rebase0` as equal to, or a prefix
-of, `uefi-pe-rebase0/v1`. A change to §3 or §4 that alters a digest a conforming implementation
+of, `uefi-pe-rebase0.v1`. A change to §3 or §4 that alters a digest a conforming implementation
 could **correctly** have produced requires a new version. A change that narrows behaviour the
 document left undefined, or that replaces a rule which produced a demonstrably wrong value, is
 errata against the current version: it is recorded in §12.1 with the evidence that no real module's
@@ -382,7 +392,7 @@ the expected answer.
 > pointer pair) was caught by exactly this round trip and by nothing else. Regenerate with
 > `te-vectors.py --emit --edk2 <tree>`; check with `--check`, which needs neither edk2 nor GenFw.
 
-The other two cover `uefi-pe-rebase0/v1`, and both are needed.
+The other two cover `uefi-pe-rebase0.v1`, and both are needed.
 
 [`normalized-module-hash-vectors.json`](normalized-module-hash-vectors.json) — one entry per module
 of the OVMF reference image, with the **as-found** and **normalized** digest of each. Real firmware,
@@ -480,7 +490,7 @@ a normalization can be *referenced* rather than *re-specified* — which is prec
 raised in [open-source-firmware/sbom#3](https://github.com/open-source-firmware/sbom/issues/3):
 that a particular PE transformation should not become frozen API inside a specification.
 
-### 12.1 Errata against `uefi-pe-rebase0/v1`
+### 12.1 Errata against `uefi-pe-rebase0.v1`
 
 Corrections that narrow previously undefined or incorrect behaviour. None of them changes a digest
 any conforming implementation could correctly have produced, so the identifier stays `…/v1` — see
