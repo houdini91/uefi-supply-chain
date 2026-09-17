@@ -194,6 +194,16 @@ check("collect_modules(#3): its FILE_GUID + filetype come from the nearest ances
 v_nest = dr.reconcile(dr.load_sbom_hashes(_sbom({GUID_NEST: ("ModNest", h(PE))})), mods_nest)
 check("collect_modules(#3): the nested module reconciles clean (1/1) instead of a false MISSING/DENY",
       v_nest["clean"] is True and len(v_nest["missing"]) == 0)
+# CHIPSEC writes file_path relative to the directory decode was RUN from, e.g. "../../x/OVMF.fd.dir/..."
+# when started elsewhere. Such a path does not resolve against the image's directory; it must be
+# re-anchored on the tree's own name rather than yield an empty module list.
+_uefi_json[0]["children"][0]["children"][0]["children"][0]["file_path"] = \
+    "../../elsewhere/OVMF.fd.dir/FV/00_fv.dir/sec.dir/ModNest.efi"
+with open(os.path.join(uj_root, "OVMF.fd.UEFI.json"), "w") as _f:
+    json.dump(_uefi_json, _f)
+mods_moved = dr.collect_modules(os.path.join(uj_root, "OVMF.fd.dir"))
+check("collect_modules: a UEFI.json written from another working directory still resolves its modules",
+      len(mods_moved) == 1 and mods_moved[0]["guid"] == GUID_NEST)
 # (b) magic-based dir fallback (no UEFI.json): '.efi' directly under an 'NN_S_COMPRESSION.dir'
 fb_root = tempfile.mkdtemp()
 _comp = os.path.join(fb_root, "FV", "00_%s.dir" % _dash("aa" * 16), "01_S_COMPRESSION.dir")
