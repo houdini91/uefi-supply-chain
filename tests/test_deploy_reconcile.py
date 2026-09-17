@@ -204,6 +204,26 @@ with open(os.path.join(uj_root, "OVMF.fd.UEFI.json"), "w") as _f:
 mods_moved = dr.collect_modules(os.path.join(uj_root, "OVMF.fd.dir"))
 check("collect_modules: a UEFI.json written from another working directory still resolves its modules",
       len(mods_moved) == 1 and mods_moved[0]["guid"] == GUID_NEST)
+# A COPY of a decode tree whose file_paths still reach the original must be read from the copy.
+orig_root = tempfile.mkdtemp()
+_orig_pe = os.path.join(orig_root, "OVMF.fd.dir", "FV", "00_fv.dir", "sec.dir", "ModNest.efi")
+os.makedirs(os.path.dirname(_orig_pe), exist_ok=True)
+with open(_orig_pe, "wb") as _f:
+    _f.write(PE + b"\x01")   # the original differs from the copy
+_uefi_json[0]["children"][0]["children"][0]["children"][0]["file_path"] = os.path.relpath(_orig_pe, uj_root)
+with open(os.path.join(uj_root, "OVMF.fd.UEFI.json"), "w") as _f:
+    json.dump(_uefi_json, _f)
+mods_copy = dr.collect_modules(os.path.join(uj_root, "OVMF.fd.dir"))
+check("collect_modules: a copied tree is read from the copy, never through paths into the original",
+      len(mods_copy) == 1 and mods_copy[0]["raw"] == PE)
+_outside_pe = os.path.join(tempfile.mkdtemp(), "Outside.efi")
+with open(_outside_pe, "wb") as _f:
+    _f.write(PE)
+_uefi_json[0]["children"][0]["children"][0]["children"][0]["file_path"] = _outside_pe
+with open(os.path.join(uj_root, "OVMF.fd.UEFI.json"), "w") as _f:
+    json.dump(_uefi_json, _f)
+check("collect_modules: a file_path outside the decode tree is never read",
+      all(m["path"].startswith(uj_root) for m in dr.collect_modules(os.path.join(uj_root, "OVMF.fd.dir"))))
 _uefi_json[0]["children"][0]["children"][0]["children"][0]["file_path"] = "gone/ModNest.efi"
 with open(os.path.join(uj_root, "OVMF.fd.UEFI.json"), "w") as _f:
     json.dump(_uefi_json, _f)

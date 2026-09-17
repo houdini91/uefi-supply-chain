@@ -146,21 +146,24 @@ def _collect_from_uefi_json(uefi_json_path, base_dir, efilist):
         return None
     mods, seen = [], set()
     tree_name = os.path.basename(uefi_json_path)[:-len(".UEFI.json")] + ".dir"
+    tree_root = os.path.realpath(os.path.join(base_dir, tree_name))
 
     def _resolve(fp):
+        """A file_path inside THIS decode tree, or None. CHIPSEC writes file_path relative to the
+        directory decode was RUN from, which is only the image's directory if it was started there;
+        so anchor on the tree's own name first. A path that lands outside the tree is refused: a
+        copied tree must never be read through paths that still point at the original."""
         if not fp:
             return None
-        if os.path.isabs(fp):
-            return fp
-        path = os.path.join(base_dir, fp)
-        if os.path.isfile(path):
-            return path
-        # CHIPSEC writes file_path relative to the directory it was RUN from, which is only the
-        # image's directory if decode was started there. Re-anchor on the decode tree's own name.
         parts = fp.replace("\\", "/").split("/")
         if tree_name in parts:
             i = len(parts) - 1 - parts[::-1].index(tree_name)
-            return os.path.join(base_dir, *parts[i:])
+            path = os.path.join(base_dir, *parts[i:])
+        else:
+            path = fp if os.path.isabs(fp) else os.path.join(base_dir, fp)
+        real = os.path.realpath(path)
+        if real != tree_root and not real.startswith(tree_root + os.sep):
+            return None
         return path
 
     def rec(node, anc_guid, anc_type):
