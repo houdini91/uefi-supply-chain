@@ -173,10 +173,10 @@ def _profile_rva_to_offset(rva, buf, fh, oh):
     n = struct.unpack_from("<H", buf, fh + 2)[0]
     size_opt = struct.unpack_from("<H", buf, fh + 16)[0]
     base = oh + size_opt
+    if base + n * 40 > len(buf):
+        raise ValueError("section table past end of image")
     for i in range(n):
         s = base + i * 40
-        if s + 40 > len(buf):
-            raise ValueError("section table past end of image")
         vaddr = struct.unpack_from("<I", buf, s + 12)[0]
         rsize = struct.unpack_from("<I", buf, s + 16)[0]
         praw = struct.unpack_from("<I", buf, s + 20)[0]
@@ -210,9 +210,32 @@ def canon_unrebase(pe_bytes):
     pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_BASERELOC']])
     base = pe.OPTIONAL_HEADER.ImageBase
     buf = bytearray(pe.__data__)
-    _e = struct.unpack_from("<I", buf, 0x3C)[0]
-    _fh = _e + 4
+    # Profile s4: every header and section-table value is read ONCE, from the untouched input.
+    # Only relocation blocks, entries and patched values come from the working copy.
+    pre = bytes(buf)
+
+    # Header checks up front (s4.2), whatever the ImageBase.
+    if len(pre) < 0x40:
+        raise ValueError("image too small for a DOS header")
+    e_lfanew = struct.unpack_from("<I", pre, 0x3C)[0]
+    if e_lfanew + 4 + 20 + 68 > len(pre):
+        raise ValueError("e_lfanew %#x leaves no room for the PE headers" % e_lfanew)
+    if pre[e_lfanew:e_lfanew + 4] != b"PE\0\0":
+        raise ValueError("no PE signature at e_lfanew %#x" % e_lfanew)
+    _fh = e_lfanew + 4
     _oh = _fh + 20
+    magic = struct.unpack_from("<H", pre, _oh)[0]
+    if magic == 0x20B:          # PE32+ — no BaseOfData, ImageBase is 8 bytes
+        ib_off, ib_fmt = _oh + 24, "<Q"
+    elif magic == 0x10B:        # PE32
+        ib_off, ib_fmt = _oh + 28, "<I"
+    else:
+        # Fail closed rather than emit a partially-normalized image.
+        raise ValueError("unsupported optional-header magic %#x" % magic)
+    _nsec = struct.unpack_from("<H", pre, _fh + 2)[0]
+    _sec_tbl = _oh + struct.unpack_from("<H", pre, _fh + 16)[0]
+    if _sec_tbl + _nsec * 40 > len(pre):
+        raise ValueError("section table past end of image")
     # A non-zero ImageBase with NO relocation table means the module has no relocations at all:
     # being rebased to its flash address changed ONLY the ImageBase header field, nothing in
     # code/data. Zeroing ImageBase/TimeDateStamp/CheckSum (below) is therefore the exact, faithful
@@ -236,15 +259,15 @@ def canon_unrebase(pe_bytes):
         # without raising, so `len(_dd) > 5` is False and the truncation looks like absence.
         # Second fail-open of this class, found by the conformance floor (profile s4.1:
         # "an unreadable directory is a failure, not an absence").
-        _magic = struct.unpack_from("<H", buf, _oh)[0]
+        _magic = magic
         _numrva_off, _dd_off = ((_oh + 92, _oh + 96) if _magic == 0x10B else (_oh + 108, _oh + 112))
-        if _numrva_off + 4 > len(buf):
+        if _numrva_off + 4 > len(pre):
             raise ValueError("NumberOfRvaAndSizes unreadable with ImageBase != 0")
         if struct.unpack_from("<I", buf, _numrva_off)[0] > 5 and _dd_off + 6 * 8 > len(buf):
             raise ValueError("data directory truncated before the base-relocation entry")
         _dd = pe.OPTIONAL_HEADER.DATA_DIRECTORY
         _declared = len(_dd) > 5 and _dd[5].VirtualAddress and _dd[5].Size
-        if not _declared and (struct.unpack_from("<H", buf, _fh + 18)[0] & 0x0001):
+        if not _declared and (struct.unpack_from("<H", pre, _fh + 18)[0] & 0x0001):
             raise ValueError("relocations stripped with ImageBase != 0; not reversible")
         if _declared and not getattr(pe, "DIRECTORY_ENTRY_BASERELOC", None):
             raise ValueError(
@@ -252,7 +275,20 @@ def canon_unrebase(pe_bytes):
                 "refusing to emit a header-only normalization"
                 % (_dd[5].VirtualAddress, _dd[5].Size))
     if base and hasattr(pe, "DIRECTORY_ENTRY_BASERELOC"):
+        _dd5 = pe.OPTIONAL_HEADER.DATA_DIRECTORY[5]
+        dir_off = _profile_rva_to_offset(_dd5.VirtualAddress, pre, _fh, _oh)
+        dir_end = dir_off + _dd5.Size
+        if dir_end > len(pre):
+            raise ValueError("relocation directory past end of image")
+        expect_blk = dir_off
         for blk in pe.DIRECTORY_ENTRY_BASERELOC:
+            # pefile locates sections its own way (it rounds PointerToRawData to 0x200, among
+            # other things) and may read the directory from somewhere else entirely. Accept its
+            # blocks only if they sit exactly where the profile's mapping puts them.
+            if blk.struct.get_file_offset() != expect_blk:
+                raise ValueError("pefile read a relocation block at %#x, profile says %#x"
+                                 % (blk.struct.get_file_offset(), expect_blk))
+            expect_blk += blk.struct.SizeOfBlock
             # Entries are u16, so a block whose size is odd cannot be well-formed. pefile
             # floors the entry count and carries on; the profile (s4.1) says fail. Check the
             # raw SizeOfBlock ourselves rather than trust the parsed entry list.
@@ -261,7 +297,11 @@ def canon_unrebase(pe_bytes):
             for e in blk.entries:
                 if e.type == 0:            # IMAGE_REL_BASED_ABSOLUTE — padding, skip
                     continue
-                off = _profile_rva_to_offset(e.rva, buf, _fh, _oh)
+                off = _profile_rva_to_offset(e.rva, pre, _fh, _oh)
+                # pefile parsed the entries from the untouched input, but s4 reads them from the
+                # working copy. The two differ only if a fixup rewrites the directory; decline then.
+                if e.type in (3, 10) and off < dir_end and off + (4 if e.type == 3 else 8) > dir_off:
+                    raise ValueError("fixup at %#x rewrites the relocation directory" % off)
                 if e.type == 3:            # HIGHLOW (32-bit)
                     if off + 4 > len(buf):
                         raise ValueError("HIGHLOW reloc past end of image")
@@ -280,37 +320,15 @@ def canon_unrebase(pe_bytes):
     # object-file fields, zero in every linked image, but GenFw's rebase stores the
     # load address in the first non-code section's pair (GenFw.c:966-972). That is
     # placement-dependent, so it must not survive. Free on all 993 real modules.
-    _nsec = struct.unpack_from("<H", buf, _fh + 2)[0]
-    _sec_tbl = _oh + struct.unpack_from("<H", buf, _fh + 16)[0]
     for _i in range(_nsec):
-        _h = _sec_tbl + _i * 40
-        if _h + 40 > len(buf):
-            break
-        struct.pack_into("<Q", buf, _h + 24, 0)
+        struct.pack_into("<Q", buf, _sec_tbl + _i * 40 + 24, 0)   # table bounds checked above
 
-    # Header normalization, as byte patches at their documented file offsets. Layout:
+    # Header normalization, after the fixups, at offsets located before them. Layout:
     #   e_lfanew @ 0x3C -> "PE\0\0" (4) -> COFF FILE_HEADER (20) -> OPTIONAL_HEADER
     #   FILE_HEADER.TimeDateStamp   @ fh + 4
     #   OPTIONAL_HEADER.CheckSum    @ oh + 64   (same for PE32 and PE32+)
     #   OPTIONAL_HEADER.ImageBase   @ oh + 28 (4 bytes, PE32)  /  oh + 24 (8 bytes, PE32+)
-    if len(buf) < 0x40:
-        raise ValueError("image too small for a DOS header")
-    e_lfanew = struct.unpack_from("<I", buf, 0x3C)[0]
-    if e_lfanew + 4 + 20 + 68 > len(buf):
-        raise ValueError("e_lfanew %#x leaves no room for the PE headers" % e_lfanew)
-    if bytes(buf[e_lfanew:e_lfanew + 4]) != b"PE\0\0":
-        raise ValueError("no PE signature at e_lfanew %#x" % e_lfanew)
-    fh = e_lfanew + 4
-    oh = fh + 20
-    magic = struct.unpack_from("<H", buf, oh)[0]
-    if magic == 0x20B:          # PE32+ — no BaseOfData, ImageBase is 8 bytes
-        ib_off, ib_fmt = oh + 24, "<Q"
-    elif magic == 0x10B:        # PE32
-        ib_off, ib_fmt = oh + 28, "<I"
-    else:
-        # Fail closed rather than emit a partially-normalized image.
-        raise ValueError("unsupported optional-header magic %#x" % magic)
-    struct.pack_into("<I", buf, fh + 4, 0)      # TimeDateStamp
-    struct.pack_into("<I", buf, oh + 64, 0)     # CheckSum
+    struct.pack_into("<I", buf, _fh + 4, 0)     # TimeDateStamp
+    struct.pack_into("<I", buf, _oh + 64, 0)    # CheckSum
     struct.pack_into(ib_fmt, buf, ib_off, 0)    # ImageBase
     return bytes(buf)
