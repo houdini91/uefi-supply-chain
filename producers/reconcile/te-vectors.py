@@ -20,6 +20,11 @@ ourselves.
 
   te-vectors.py --emit  --edk2 <tree> -o docs/normalized-module-hash-te-vectors.json
   te-vectors.py --check docs/normalized-module-hash-te-vectors.json
+  te-vectors.py --derive docs/normalized-module-hash-te-vectors.json
+
+--derive rebuilds only the patched vectors (the negatives and the crafted cases), starting from
+the oracle output already stored in the file. It needs no edk2 tree, and on an unchanged file it
+reproduces the existing entries exactly.
 """
 import argparse
 import base64
@@ -98,9 +103,19 @@ def build(edk2, workdir):
                     % base,
                     open(te, "rb").read()))
 
-    rebased = bytearray(out[1][2])
+    return out + derived(out[1][2])
 
-    # --- negatives, patched from the rebased image so each isolates one rule ---
+
+# Crafted from oracle output rather than produced by it. The expected value is exact, but an
+# implementation may decline these without being non-conformant (profile s6).
+MAY_DECLINE = {"te-fixup-rewrites-own-directory"}
+DERIVED_FROM = "te-real-rebased-%s" % BASES[0]
+
+
+def derived(rebased):
+    """Every vector patched from the first rebased image, each isolating one rule."""
+    rebased = bytearray(rebased)
+    out = []
     v = bytearray(rebased)
     struct.pack_into("<II", v, 24, 0, 0)                 # DataDirectory[0] = {0, 0}
     out.append(("neg-te-relocations-stripped",
@@ -139,27 +154,69 @@ def build(edk2, workdir):
                 "pass while testing a different rule than it names. Entries are uint16, so an odd "
                 "block leaves the last one straddling the end. Same rule as s4.1: emit no value."
                 % (blk, blk - 1), bytes(v)))
+
+    v = bytearray(rebased)
+    off, _size = _reloc_dir_offset(v)
+    dir_rva = struct.unpack_from("<I", v, 24)[0]
+    struct.pack_into("<I", v, off, dir_rva & ~0xFFF)     # first block now covers the directory's page
+    struct.pack_into("<H", v, off + 8, (10 << 12) | ((dir_rva + 8 + 2 * 2) & 0xFFF))
+    out.append(("te-fixup-rewrites-own-directory",
+                "The first relocation block is pointed at the directory's own page, and its first "
+                "entry is a DIR64 fixup onto the block's third entry. So the walk patches entries it "
+                "has not read yet. s4: every read in s4.1 comes from the working copy, after the "
+                "earlier patches. An implementation that reads entries from the untouched input "
+                "sees different entries and differs. Found by differential fuzzing, 2026-09-17.",
+                bytes(v)))
+
+    v = bytearray(rebased)
+    nsec = v[4]
+    out.append(("neg-te-section-table-past-end",
+                "Image cut off inside the last section header (NumberOfSections = %d). s4.4 zeroes "
+                "the pointer pair in every header, so the table must fit the image whatever "
+                "ImageBase is. The reference used to check this only while walking relocations."
+                % nsec, bytes(v[:TE_HDR + (nsec - 1) * 40 + 20])))
     return out
+
+
+def _entry(cid, why, raw):
+    entry = {"id": cid, "rationale": why,
+             "input_b64": base64.b64encode(raw).decode(),
+             "input_sha256": hashlib.sha256(raw).hexdigest(),
+             "size": len(raw)}
+    try:
+        norm = profile_ref.normalize_te(raw)
+        entry["expect_value"] = True
+        entry["sha256_norm"] = hashlib.sha256(norm).hexdigest()
+    except profile_ref.NotNormalizable as ex:
+        entry["expect_value"] = False
+        entry["sha256_norm"] = None
+        entry["reason"] = str(ex)
+    if cid in MAY_DECLINE:
+        entry["may_decline"] = True
+    return entry
+
+
+def derive(path):
+    """Rebuild the patched vectors from the oracle output stored in `path`, in place."""
+    doc = json.load(open(path))
+    src = next(v for v in doc["vectors"] if v["id"] == DERIVED_FROM)
+    fresh = [_entry(*c) for c in derived(base64.b64decode(src["input_b64"]))]
+    ids = {e["id"] for e in fresh}
+    kept = [v for v in doc["vectors"] if v["id"] not in ids]
+    for old in doc["vectors"]:
+        new = next((e for e in fresh if e["id"] == old["id"]), None)
+        if new is not None and new != old:
+            sys.stderr.write("te-vectors: %s changed\n" % old["id"])
+    doc["vectors"] = kept + fresh
+    open(path, "w").write(json.dumps(doc, indent=2) + "\n")
+    sys.stderr.write("te-vectors: %d derived vectors -> %s\n" % (len(fresh), path))
+    return 0
 
 
 def emit(edk2):
     with tempfile.TemporaryDirectory() as wd:
         cases = build(edk2, wd)
-    vectors = []
-    for cid, why, raw in cases:
-        entry = {"id": cid, "rationale": why,
-                 "input_b64": base64.b64encode(raw).decode(),
-                 "input_sha256": hashlib.sha256(raw).hexdigest(),
-                 "size": len(raw)}
-        try:
-            norm = profile_ref.normalize_te(raw)
-            entry["expect_value"] = True
-            entry["sha256_norm"] = hashlib.sha256(norm).hexdigest()
-        except profile_ref.NotNormalizable as ex:
-            entry["expect_value"] = False
-            entry["sha256_norm"] = None
-            entry["reason"] = str(ex)
-        vectors.append(entry)
+    vectors = [_entry(*c) for c in cases]
 
     # The round trip is the whole point: assert it here rather than trusting the file.
     truth = next(v for v in vectors if v["id"] == "te-real-base0")["sha256_norm"]
@@ -223,11 +280,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--emit", action="store_true")
     ap.add_argument("--check", metavar="VECTORS")
+    ap.add_argument("--derive", metavar="VECTORS")
     ap.add_argument("--edk2")
     ap.add_argument("-o", "--out")
     a = ap.parse_args()
     if a.check:
         return check(a.check)
+    if a.derive:
+        return derive(a.derive)
     if not a.edk2:
         sys.exit("te-vectors: --emit needs --edk2 <tree> (GenFw is the oracle)")
     doc = emit(a.edk2)

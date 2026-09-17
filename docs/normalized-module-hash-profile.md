@@ -95,6 +95,13 @@ computed file offset. The image is **never parsed and re-serialized** — re-ser
 the result depend on a particular PE library's writer, which a second implementation cannot be
 expected to reproduce.
 
+**What each step reads.** The section table is located once, before §4.1, from the preimage
+(`NumberOfSections` and `SizeOfOptionalHeader`, below), and that one table is used by both §4.1 and
+§4.2. Every other value §4.1 reads — each block header, each entry and each value it patches — is
+read from the working copy at the moment it is needed, after every earlier patch. Fixups are applied
+one at a time, in directory order. §4.2 runs after §4.1 has finished, so a field §4.2 zeroes ends as
+zero even if a fixup landed on it.
+
 ### 4.1 Reverse the relocation fixups
 
 Let `B` = `OPTIONAL_HEADER.ImageBase`. If `B == 0` there is nothing to reverse; go to §4.2.
@@ -162,8 +169,8 @@ that ends before `NumberOfRvaAndSizes` or before data-directory index 5 can be r
 relocation type; a `BlockSize` below 8, **odd**, or extending past the directory; a directory
 extending past the end of the image; an RVA (of the directory or of any fixup target) that maps to no
 section, including one landing in a virtual-only tail or in a section with no raw data; a fixup
-target whose 4 or 8 bytes would run past the end of the image; a section table extending past the
-end of the image; an absent directory with `IMAGE_FILE_RELOCS_STRIPPED` set.
+target whose 4 or 8 bytes would run past the end of the image; an absent directory with
+`IMAGE_FILE_RELOCS_STRIPPED` set.
 
 > **A declared or unreadable directory is a failure, not an absence.** Two implementations in this
 > repo each had a version of this fault. The pefile-based one delegated parsing to a library that
@@ -195,8 +202,9 @@ Offsets, all little-endian. `e_lfanew` is the `uint32` at file offset `0x3C`; th
 bytes; the `OPTIONAL_HEADER` follows at `oh = fh + 20`.
 
 **Fail — emit no value** if the image is shorter than `0x40` bytes, if `e_lfanew` leaves no room for
-the signature and COFF header, if there is no `"PE\0\0"` at `e_lfanew`, or if the optional header
-does not reach `oh + 68` (the last byte this section reads).
+the signature and COFF header, if there is no `"PE\0\0"` at `e_lfanew`, if the optional header
+does not reach `oh + 68`, or if the section table extends past the end of the image. These hold
+whatever the value of `B`; they are checked before §4.1 begins.
 
 | Field | Offset | Size |
 |---|---|---|
@@ -274,6 +282,9 @@ with the same requirement that the section have raw bytes (`PointerToRawData ≠
 failure. Cf. `BaseTools/Source/C/Common/BasePeCoff.c:427-431`, which spells out this exact
 expression.
 
+A section table extending past the end of the image is a failure whatever the value of `B`, as in
+§4.2.
+
 **Relocation directory.** `DataDirectory[0]` at offset 24 — there is no `NumberOfRvaAndSizes` to
 guard, and no index to select. The block walk, the entry encoding and the supported types are
 exactly as in §4.1.
@@ -295,7 +306,8 @@ GenFw writes that non-zero-address-with-zero-size deliberately, *because* TE lac
 
 **Normalization.** Reverse the fixups as in §4.1 using the mapping above, zero
 `PointerToRelocations`/`PointerToLinenumbers` in every section header (§4.2), then zero the 8-byte
-`ImageBase` at offset 16. Digest as §4.3.
+`ImageBase` at offset 16. Digest as §4.3. The read rule at the top of §4 applies unchanged:
+`NumberOfSections`, `StrippedSize`, `ImageBase` and `DataDirectory[0]` are read once, before the walk.
 
 **Identifier.** `uefi-te-rebase0.v1`.
 
@@ -445,7 +457,7 @@ taken from.
 | **Reference** | `producers/reconcile/profile_ref.py` | Dependency-free (`hashlib` + `struct` only). Written from §3–§4 of this document without consulting `canon_unrebase`; it is what the runnable vectors' expected values come from. Agrees with `canon_unrebase` on all 122 reference modules. Its `GUESSES` list records every place this document initially fell short. `normalize()`/`digest()` implement §4.1–4.3; `normalize_te()`/`digest_te()` implement §4.4. |
 | Oracle | edk2 `BaseTools/Source/C/bin/GenFw` | Not an implementation of this profile — it performs the **forward** operation §4.4 reverses (`--rebase <addr>`, then `-t`). Used by `te-vectors.py` to produce expected answers no implementation here contributed to. |
 | Producer | edk2 fork, `BaseTools/.../BuildReport.py` (`-Y SBOM`) | Declares the digest and the profile value. |
-| — | CHIPSEC `scan_image` | A normalized-hash field has been *raised* as an idea in [chipsec/chipsec#2843](https://github.com/chipsec/chipsec/issues/2843) (open). CHIPSEC has **not** been asked to adopt this profile and has agreed to nothing; listed only so the idea's origin is traceable. |
+| — | CHIPSEC `scan_image` | Proposed in [chipsec/chipsec#2843](https://github.com/chipsec/chipsec/issues/2843) (open), where a maintainer welcomed an optional `sha256_norm` field. An implementation of both profiles exists on a fork branch and has not been submitted; `tests/test_profile_conformance.py` checks it against every vector when `CHIPSEC_DIR` points at it. CHIPSEC has not adopted this profile. |
 
 ## 9. Why not just declare the as-placed hash?
 
@@ -502,8 +514,9 @@ that a particular PE transformation should not become frozen API inside a specif
 ### 12.1 Errata against `uefi-pe-rebase0.v1`
 
 Corrections that narrow previously undefined or incorrect behaviour. None of them changes a digest
-any conforming implementation could correctly have produced, so the identifier stays `…/v1` — see
-the versioning rule in §5.
+any conforming implementation could correctly have produced, so the identifier stays
+`uefi-pe-rebase0.v1` — see the versioning rule in §5. Entries marked (§4.4) apply equally to
+`uefi-te-rebase0.v1`.
 
 **2026-09-08 — the RVA to file-offset mapping (§4.1).** Earlier text specified a section's span as
 `max(VirtualSize, SizeOfRawData)`. That rule was reverse-engineered from one PE parser rather than
@@ -537,3 +550,21 @@ Found by the §4.4 round trip: normalizing a `GenFw --rebase`-produced TE reprod
 every byte **except one**, and that byte was the second octet of this pair. Two implementations
 agreeing would never have surfaced it — both omitted the field. Zeroing it changes no real module's
 digest, and it is why §7's oracle matters more than agreement.
+
+**2026-09-17 — what each step reads, and where the section table must be (§4, §4.1, §4.2, §4.4).**
+§4 said the steps run in order but not what each one reads. Two implementations that both reversed
+the fixups first still disagreed on crafted input: one read relocation entries from the untouched
+preimage and the other from the working copy, so a fixup that rewrote a later entry of its own
+directory produced two different answers. A third zeroed the header fields *before* walking the
+relocations, contrary to "in order", and differed wherever a fixup landed on one of them. §4 now
+states the read rule: the section table is located once, before §4.1; everything else §4.1 reads
+comes from the working copy, one fixup at a time.
+
+§4.1 also listed "a section table extending past the end of the image" as a failure only when
+`B ≠ 0`, and the reference implementation noticed it only when it had a relocation directory to
+walk. §4.2 writes into every section header regardless, so the check now applies to every input,
+before §4.1, in both profiles.
+
+Found by differential fuzzing of two implementations, not by any real module. No real module has a
+fixup that lands in its headers or its own relocation directory, and a real section table always fits
+the image, so no published digest moves. The new cases are covered by vectors in §7.

@@ -20,13 +20,109 @@ sys.path.insert(0, os.path.join(HERE, "..", "producers", "reconcile"))
 import profile_ref  # noqa: E402
 
 VECTORS = os.path.join(HERE, "..", "docs", "normalized-module-hash-vectors-runnable.json")
+TE_VECTORS = os.path.join(HERE, "..", "docs", "normalized-module-hash-te-vectors.json")
+
+# CHIPSEC is a THIRD implementation of the same profiles, in a sibling checkout rather
+# than a dependency. It is checked here because nothing else notices when it falls behind:
+# it passed every published vector while diverging from s4.2, since no vector happened to
+# exercise the field it was missing. Point CHIPSEC_DIR at a checkout to run this arm.
+CHIPSEC_DIR = os.environ.get(
+    "CHIPSEC_DIR", os.path.join(HERE, "..", "..", "chipsec"))
 fails = []
+
+
+def _required(v):
+    """s6: a value is required for every expect_value vector, except the crafted ones a
+    stricter parser may refuse. Where a value IS emitted it must still match exactly."""
+    return bool(v.get("expect_value")) and not v.get("may_decline")
 
 
 def check(cond, msg):
     print(("PASS  " if cond else "FAIL  ") + msg)
     if not cond:
         fails.append(msg)
+
+
+
+def _load_chipsec():
+    """chipsec.library.uefi.fv from CHIPSEC_DIR, or None if there is no checkout."""
+    if not os.path.isdir(os.path.join(CHIPSEC_DIR, "chipsec")):
+        return None
+    sys.path.insert(0, os.path.abspath(CHIPSEC_DIR))
+    try:
+        import chipsec.library.logger as _l
+        _l.logger().HAL = False
+        from chipsec.library.uefi import fv
+        return fv
+    except Exception:
+        return None
+
+
+def _synthetic_rebase_artifact(raw):
+    """A rebased PE32+ carrying the load address where GenFw's rebase leaves a copy.
+
+    GenFw writes the assigned base as a UINT64 across PointerToRelocations and
+    PointerToLinenumbers of the first non-code section (GenFw.c:966-972). No real
+    module has it set, so no vector taken from firmware exercises s4.2's requirement
+    to zero that pair -- which is exactly how an implementation can pass every
+    published vector and still be non-conformant.
+    """
+    import struct
+    buf = bytearray(raw)
+    e_lfanew = struct.unpack_from("<I", buf, 0x3C)[0]
+    fh, oh = e_lfanew + 4, e_lfanew + 24
+    nsec = struct.unpack_from("<H", buf, fh + 2)[0]
+    sec = oh + struct.unpack_from("<H", buf, fh + 16)[0]
+    for i in range(nsec):
+        h = sec + i * 40
+        if not (struct.unpack_from("<I", buf, h + 36)[0] & 0x20):   # not CNT_CODE
+            struct.pack_into("<Q", buf, h + 24, 0x140000000)
+            return bytes(buf)
+    return None
+
+
+def _check_chipsec(vs):
+    """CHIPSEC against the same vectors, plus the case the vectors cannot reach."""
+    fv = _load_chipsec()
+    if fv is None:
+        print(f"SKIP  CHIPSEC cross-check (no checkout at {CHIPSEC_DIR}; set CHIPSEC_DIR)")
+        print("\u26a0  the third implementation was NOT checked here.")
+        return
+
+    for v in vs:
+        raw = base64.b64decode(v["input_b64"])
+        got = fv.normalize_pe_rebase0(raw)
+        got = hashlib.sha256(got).hexdigest() if got is not None else None
+        if got is None:
+            check(not _required(v),
+                  f"CHIPSEC declines a vector the profile requires: {v['id']}"
+                  if _required(v) else f"CHIPSEC declines (permitted): {v['id']}")
+        else:
+            check(got == v["sha256_norm"], f"CHIPSEC agrees with reference: {v['id']}")
+
+    # the vectors alone cannot catch a missing s4.2 rule, so construct the case
+    src = next((v for v in vs if v["id"] == "pe32plus-dir64-rebased"), None)
+    if src:
+        raw = _synthetic_rebase_artifact(base64.b64decode(src["input_b64"]))
+        if raw:
+            ref = profile_ref.normalize(raw)
+            got = fv.normalize_pe_rebase0(raw)
+            check(got == ref,
+                  "CHIPSEC zeroes the section-pointer pair a rebase leaves behind (s4.2)")
+
+    # TE is a separate profile; absent support is a gap, not a wrong answer
+    if not hasattr(fv, "normalize_te_rebase0"):
+        print("SKIP  CHIPSEC TE vectors (normalize_te_rebase0 not implemented)")
+        return
+    with open(TE_VECTORS) as f:
+        for v in json.load(f)["vectors"]:
+            raw = base64.b64decode(v["input_b64"])
+            got = fv.normalize_te_rebase0(raw)
+            got = hashlib.sha256(got).hexdigest() if got is not None else None
+            if got is None:
+                check(not _required(v), f"CHIPSEC TE declines: {v['id']}")
+            else:
+                check(got == v["sha256_norm"], f"CHIPSEC agrees on TE vector: {v['id']}")
 
 
 def main():
@@ -67,12 +163,14 @@ def main():
                 # Declining is allowed ONLY where the profile does not require a value. A
                 # conformant implementation MUST produce every expect_value:true vector --
                 # otherwise "never differs" is satisfied by declining everything (s6).
-                check(not v.get("expect_value"),
+                check(not _required(v),
                       f"pefile declines on a vector the profile requires a value for: {v['id']}"
-                      if v.get("expect_value") else f"pefile declines (permitted): {v['id']}")
+                      if _required(v) else f"pefile declines (permitted): {v['id']}")
             else:
                 check(got == v["sha256_norm"],
                       f"pefile agrees with reference: {v['id']}")
+
+    _check_chipsec(vs)
 
     # the profile's own worked example, so the doc and the vectors cannot drift apart
     check(doc.get("expected_by", "").endswith("profile_ref.py"),

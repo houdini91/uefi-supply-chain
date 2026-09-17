@@ -65,6 +65,13 @@ GUESSES = [
             "base 0. The two cases are distinguishable: IMAGE_FILE_RELOCS_STRIPPED (0x0001) in "
             "FileHeader.Characteristics at fh+18. Now: absent + flag clear -> value; absent + flag "
             "set with B != 0 -> fail. No real module sets the flag, so nothing observed changed."),
+    ("G12", "FOUND BY REVIEW, third round. s4 said 'in order' but not WHAT each step reads. Two "
+            "implementations that both apply fixups before zeroing still differed on crafted input: "
+            "one read relocation entries from the untouched preimage, the other from the working copy. "
+            "And s4.1 listed 'a section table past the end of the image' as a failure while this "
+            "function only noticed it when it had a directory to walk. Now: the section table is "
+            "located once, before s4.1, and must fit the image for any B; every other read in s4.1 is "
+            "from the working copy. No real module is affected -- a real table always fits."),
 ]
 
 ABSOLUTE, HIGHLOW, DIR64 = 0, 3, 10
@@ -145,6 +152,11 @@ def normalize(preimage: bytes) -> bytes:
     if ib_off + ib_w > len(buf):
         raise NotNormalizable("ImageBase field past end of image")
     B = struct.unpack_from(ib_fmt, buf, ib_off)[0]
+    # [G12] The section table is located once, from the preimage, and that one table
+    # serves both s4.1 and s4.2. It must lie inside the image whatever B is: s4.2
+    # writes into every entry, and a table that runs off the end has no last entry.
+    sec_tbl, nsec = oh + _u16(buf, fh + 16), _u16(buf, fh + 2)
+    sections = _sections(buf, fh, oh)
 
     # --- s4.1 reverse the relocation fixups ---
     if B != 0:
@@ -170,7 +182,6 @@ def normalize(preimage: bytes) -> bytes:
         if not have_dir and (_u16(buf, fh + 18) & RELOCS_STRIPPED):
             raise NotNormalizable("relocations stripped with ImageBase != 0; not reversible")
         if have_dir:
-            sections = _sections(buf, fh, oh)
             start = _rva_to_offset(reloc_rva, sections)                   # [G1][G5]
             end = start + reloc_size
             if end > len(buf):
@@ -209,7 +220,7 @@ def normalize(preimage: bytes) -> bytes:
     struct.pack_into("<I", buf, fh + 4, 0)          # TimeDateStamp
     struct.pack_into("<I", buf, oh + 64, 0)         # CheckSum
     struct.pack_into(ib_fmt, buf, ib_off, 0)        # ImageBase
-    _zero_section_pointers(buf, oh + _u16(buf, fh + 16), _u16(buf, fh + 2))
+    _zero_section_pointers(buf, sec_tbl, nsec)
     return bytes(buf)
 
 
@@ -223,10 +234,7 @@ def _zero_section_pointers(buf, sec_tbl, nsec):
     the pair. That is placement-dependent data by definition, so it must not survive.
     """
     for i in range(nsec):
-        h = sec_tbl + i * 40
-        if h + 40 > len(buf):
-            break
-        struct.pack_into("<Q", buf, h + 24, 0)
+        struct.pack_into("<Q", buf, sec_tbl + i * 40 + 24, 0)   # table bounds checked by the caller
 
 
 def _te_sections(buf, nsec):
@@ -269,6 +277,7 @@ def normalize_te(preimage: bytes) -> bytes:
     tso = stripped - TE_HEADER_SIZE
     B = struct.unpack_from("<Q", buf, 16)[0]
     reloc_rva, reloc_size = struct.unpack_from("<II", buf, 24)   # DataDirectory[0] = BASERELOC
+    sections = _te_sections(buf, nsec)                           # [G12] bounds, whatever B is
 
     if B != 0:
         if reloc_size == 0:
@@ -281,7 +290,6 @@ def normalize_te(preimage: bytes) -> bytes:
             if reloc_rva == 0:
                 raise NotNormalizable("relocations stripped with ImageBase != 0; not reversible")
         else:
-            sections = _te_sections(buf, nsec)
             start = _te_rva_to_offset(reloc_rva, sections, tso)
             end = start + reloc_size
             if start < 0 or end > len(buf):

@@ -48,7 +48,7 @@ REL_ABSOLUTE, REL_HIGHLOW, REL_DIR64, REL_HIGH = 0, 3, 10, 1
 def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
              timestamp=0, checksum=0, truncate_at=None, odd_blocksize=False,
              text_raw_size=None, text_praw_zero=False, text_va=None,
-             relocs_stripped=False):
+             relocs_stripped=False, text_praw=None, num_sections=2):
     """A minimal but structurally valid PE whose .text holds two self-referential
     absolute pointers (ImageBase + own RVA), described by a .reloc block -- so
     reversing the fixups is a real operation, not a no-op.
@@ -61,6 +61,10 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
       text_va         move .text so its fixup targets match no section at all
       relocs_stripped set IMAGE_FILE_RELOCS_STRIPPED (with with_reloc=False, the
                       applied-then-discarded case that cannot be reversed)
+      text_praw       .text PointerToRawData, to aim the fixups at a chosen file offset
+                      (the header fields s4.2 zeroes) instead of at .text's own bytes
+
+    truncate_at="sectable" cuts the file inside the section table's second entry.
     """
     if pe_plus:
         magic, size_opt, ib_off, numrva_off, dd_off = MAGIC64, 112 + 16 * 8, 24, 108, 112
@@ -76,7 +80,7 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
     struct.pack_into("<I", buf, 0x3C, E_LFANEW)
     buf[E_LFANEW:E_LFANEW + 4] = b"PE\x00\x00"
     coff = E_LFANEW + 4
-    struct.pack_into("<H", buf, coff + 2, 2)               # NumberOfSections
+    struct.pack_into("<H", buf, coff + 2, num_sections)    # NumberOfSections
     struct.pack_into("<I", buf, coff + 4, timestamp)       # TimeDateStamp
     struct.pack_into("<H", buf, coff + 16, size_opt)       # SizeOfOptionalHeader
 
@@ -118,6 +122,8 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
         struct.pack_into("<I", buf, text_hdr + 20, 0)
     if text_va is not None:
         struct.pack_into("<I", buf, text_hdr + 12, text_va)
+    if text_praw is not None:
+        struct.pack_into("<I", buf, text_hdr + 20, text_praw)
     if relocs_stripped:
         ch = struct.unpack_from("<H", buf, coff + 18)[0]
         struct.pack_into("<H", buf, coff + 18, ch | 0x0001)   # IMAGE_FILE_RELOCS_STRIPPED
@@ -136,8 +142,19 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
                              (rtype << 12) | ((rva - TEXT_VA) & 0xFFF))
     if truncate_at == "oh+100":
         return bytes(buf[:opt + 100])
+    if truncate_at == "sectable":
+        return bytes(buf[:sec + 40 + 20])
     return bytes(buf)
 
+
+# ImageBase of a PE32+ built above: e_lfanew + 4 (signature) + 20 (COFF) + 24.
+PE32PLUS_IMAGEBASE_OFF = E_LFANEW + 4 + 20 + 24
+
+# Vectors built from crafted input that no real module resembles. Their expected value is
+# still exact -- an implementation that emits one MUST emit this one -- but declining them
+# does not make an implementation non-conformant (s6): a stricter parser may reasonably
+# refuse a section whose raw data overlaps the headers.
+MAY_DECLINE = {"pe32plus-fixup-lands-on-imagebase"}
 
 CASES = [
     # (id, why it exists, builder-kwargs, expect_value)
@@ -164,8 +181,11 @@ CASES = [
     ("neg-truncated-data-directory",
      "Rebased PE32+ whose image ends AFTER the optional header's first 68 bytes (so s4.2 "
      "passes) but BEFORE data-directory index 5. s4.1: an unreadable directory with B != 0 "
-     "is a failure, not an absence. The reference itself emitted a value here until review.",
-     dict(image_base=0x0000000140000000, pe_plus=True, truncate_at="oh+100"), False),
+     "is a failure, not an absence. The reference itself emitted a value here until review. "
+     "NumberOfSections is 0 so the section table trivially fits (s4.2): otherwise the table "
+     "check fires first and the vector would decline for a different reason than it names.",
+     dict(image_base=0x0000000140000000, pe_plus=True, truncate_at="oh+100", num_sections=0),
+     False),
     ("neg-odd-blocksize",
      "Relocation block whose BlockSize is odd. Entries are u16, so the last one straddles the "
      "block end. s4.1: fail. Unspecified until review; the reference emitted a value.",
@@ -198,6 +218,23 @@ CASES = [
      "normalizes -- see pe32plus-no-reloc-table-rebased.",
      dict(image_base=0x0000000140000000, pe_plus=True, with_reloc=False,
           relocs_stripped=True), False),
+    ("pe32plus-fixup-lands-on-imagebase",
+     ".text PointerToRawData moved onto the header, so the first DIR64 fixup patches ImageBase "
+     "itself and the second patches the alignment fields after it. s4 runs in order: reverse the "
+     "fixups (ImageBase becomes B - B = 0), THEN zero the s4.2 fields. An implementation that "
+     "zeroes first leaves 0 - B there and differs. Found by differential fuzzing, 2026-09-17.",
+     dict(image_base=0x0000000140000000, pe_plus=True, text_praw=PE32PLUS_IMAGEBASE_OFF), True),
+    ("neg-section-table-past-end-base0",
+     "ImageBase 0, image cut off inside the section table. s4.2 writes into every section "
+     "header, so the table must fit the image whatever B is. The reference used to stop "
+     "quietly at the last whole entry and emit a value.",
+     dict(image_base=0, pe_plus=True, truncate_at="sectable"), False),
+    ("neg-section-table-past-end-no-reloc-dir",
+     "Rebased, no relocation directory, image cut off inside the section table. s4.1 always "
+     "listed this as a failure, but the reference only looked at the table when it had a "
+     "directory to walk.",
+     dict(image_base=0x0000000140000000, pe_plus=True, with_reloc=False, truncate_at="sectable"),
+     False),
 ]
 
 
@@ -224,7 +261,8 @@ def emit():
         # correct one and certifies nothing -- which is exactly how the first attempt at
         # this file produced six worthless vectors.
         if expect and kw.get("with_reloc", True) and kw.get("image_base") \
-                and not kw.get("truncate_at") and not kw.get("odd_blocksize"):
+                and not kw.get("truncate_at") and not kw.get("odd_blocksize") \
+                and kw.get("text_praw") is None:
             if norm is None:
                 sys.exit(f"profile-synth-vectors: '{cid}' expected a value, got none ({err})")
             if _ptrs(norm, pe_plus) != list(ptr_rvas(pe_plus)):
@@ -238,6 +276,8 @@ def emit():
                  "input_b64": base64.b64encode(raw).decode(),
                  "input_sha256": hashlib.sha256(raw).hexdigest(),
                  "expect_value": expect}
+        if cid in MAY_DECLINE:
+            entry["may_decline"] = True
         if norm is not None:
             entry["sha256_norm"] = hashlib.sha256(norm).hexdigest()
             entry["output_b64"] = base64.b64encode(norm).decode()
