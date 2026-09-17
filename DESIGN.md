@@ -282,9 +282,11 @@ scan_image's exact field order and serialization — byte-schema-identical to CH
 reference our decode-tree carve and CHIPSEC's independent `scan_image -a generate` model carve produce the
 **same 122 entries with identical `{sha1, guid, name, type}`** — a second cross-carver agreement result,
 and a mechanical guard that our extraction has not silently drifted from CHIPSEC's. `--emit-efilist-annotated`
-writes a variant with a **non-standard, additive** `sha256_norm` value field (the rebase-0 hash == the
-SBOM's declared) — a concrete demonstration of the [Track B upstream proposal](planning/UPSTREAM-CHIPSEC-DRAFT.md);
-CHIPSEC's `check` keys on the sha256 and ignores it, so the annotated file stays check-consumable. This is a
+writes a variant with an additive `sha256_norm` value field in the form CHIPSEC's `scan_image ... ,norm`
+writes on the fork branch that implements it — `uefi-pe-rebase0.v1:sha256:<hex>` or
+`uefi-te-rebase0.v1:sha256:<hex>`, left out where the [profile](docs/normalized-module-hash-profile.md)
+gives no value — so the two tools' files can be compared entry by entry. CHIPSEC's `check` keys on the
+sha256 and ignores it, so the annotated file stays check-consumable. This is a
 producer **output** only — no gate control or count depends on it. (`tests/test_efilist_interop.py` asserts
 the schema hermetically and the full cross-tool agreement when pefile + a decode tree + `chipsec_main` are
 reachable, else SKIPs loudly.)

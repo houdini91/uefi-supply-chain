@@ -41,10 +41,10 @@ cross-check each other (`--emit-efilist <path>`). The base file is byte-schema-i
 to `scan_image`'s own output — keyed by the **as-found** sha256, value `{sha1, guid, name,
 type}` in CHIPSEC's field order — so `chipsec_main -i -n -m tools.uefi.scan_image -a
 check,<file>,<image>` consumes it unchanged. `--emit-efilist-annotated <path>` writes a
-variant that adds a NON-STANDARD `sha256_norm` value field (the rebase-0 hash == the SBOM's
-declared) as a concrete demonstration of the Track B upstream proposal
-(planning/UPSTREAM-CHIPSEC-DRAFT.md); CHIPSEC's `check` keys on the sha256 and IGNORES the
-extra field, so the annotated variant stays check-consumable too.
+variant that adds a `sha256_norm` value field in the form CHIPSEC's `scan_image ... ,norm`
+writes: `uefi-pe-rebase0.v1:sha256:<hex>` or `uefi-te-rebase0.v1:sha256:<hex>`, left out
+where the profile gives no value. CHIPSEC's `check` keys on the sha256 and IGNORES the extra
+field, so the annotated variant stays check-consumable too.
 
 The verdict JSON carries a stable-namespace, signed-able predicateType
 `https://firmware-sbom-supplychain/deploy-reconcile/v1` (wrap.sh wraps it into a
@@ -67,6 +67,7 @@ _RECON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "reconci
 sys.path.insert(0, os.path.abspath(_RECON))
 import ffs  # noqa: E402 — module handle so tests can reach ffs.pefile (XIP un-rebase availability)
 from ffs import canon_unrebase, load_sbom_hashes, XIP_TYPES, ffs_type_label  # noqa: E402
+import profile_ref  # noqa: E402 — dependency-free, so the annotated efilist needs no pefile
 
 PREDICATE_TYPE = "https://firmware-sbom-supplychain/deploy-reconcile/v1"
 
@@ -242,6 +243,25 @@ def _guid_dashed_upper(norm_guid):
     return ("%s-%s-%s-%s-%s" % (g[0:8], g[8:12], g[12:16], g[16:20], g[20:32])).upper()
 
 
+def labelled_norm(raw):
+    """`<profile>:sha256:<hex>` for a PE32 or TE image, or None where the profile gives no value.
+
+    Always the full profile, via profile_ref -- not normalize()'s "direct" shortcut, which hashes
+    a non-XIP module as found without parsing it. That shortcut is right for reconciling against
+    the SBOM, but a value labelled with a profile must be what the profile computes.
+    """
+    if raw[:2] == _PE_MAGIC:
+        profile, fn = "uefi-pe-rebase0.v1", profile_ref.normalize
+    elif raw[:2] == _TE_MAGIC:
+        profile, fn = "uefi-te-rebase0.v1", profile_ref.normalize_te
+    else:
+        return None
+    try:
+        return "%s:sha256:%s" % (profile, hashlib.sha256(fn(raw)).hexdigest())
+    except profile_ref.NotNormalizable:
+        return None
+
+
 def build_efilist(mods, annotated=False):
     """Assemble a CHIPSEC-`scan_image`-compatible efilist, keyed by the module's **as-found**
     sha256 (== CHIPSEC's `EFI_MODULE.SHA256`, i.e. the key scan_image writes), value dict
@@ -249,13 +269,11 @@ def build_efilist(mods, annotated=False):
     walk-order occurrence wins) — mirroring scan_image's genlist_callback, which drops a
     later section with an already-seen SHA256 into a duplicate list rather than re-adding it.
 
-    annotated=True appends a NON-STANDARD, additive `sha256_norm` value field — the rebase-0
-    hash (== the SBOM's declared per-module hash), a concrete demo of the Track B upstream
-    proposal (planning/UPSTREAM-CHIPSEC-DRAFT.md). It is null when the module is not a
-    normalizable PE (TE / non-PE) or pefile is unavailable for an XIP un-rebase — never faked.
-    CHIPSEC's `check` keys on the sha256 and ignores extra value fields, so the annotated file
-    is still `check`-consumable; the base (annotated=False) file is byte-schema-identical to
-    scan_image's own output."""
+    annotated=True appends an additive `sha256_norm` value field, spelled as CHIPSEC's
+    `scan_image ... ,norm` spells it: see labelled_norm(). The field is left out when the profile
+    gives no value, as CHIPSEC does. CHIPSEC's `check` keys on the sha256 and ignores extra value
+    fields, so the annotated file is still `check`-consumable; the base (annotated=False) file is
+    byte-schema-identical to scan_image's own output."""
     efilist = {}
     for md in mods:
         key = md["asfound"]
@@ -273,13 +291,9 @@ def build_efilist(mods, annotated=False):
             "type": md["sec_type"],
         }
         if annotated:
-            norm = None
-            if md["is_pe"]:
-                try:
-                    norm, _ = normalize(md)   # rebase-0 hash == the SBOM's declared
-                except Exception:  # noqa: BLE001 — pefile missing / bad reloc: null, never faked
-                    norm = None
-            entry["sha256_norm"] = norm  # additive, non-standard; CHIPSEC `check` ignores it
+            norm = labelled_norm(md["raw"])
+            if norm:
+                entry["sha256_norm"] = norm
         efilist[key] = entry
     return efilist
 
@@ -401,9 +415,9 @@ def main():
                          "sha256, value {sha1,guid,name,type}) — byte-schema-identical to scan_image's, so "
                          "`chipsec_main -m tools.uefi.scan_image -a check,<PATH>,<image>` consumes it (A7 interop)")
     ap.add_argument("--emit-efilist-annotated", dest="emit_efilist_annotated", metavar="PATH",
-                    help="ALSO write an efilist.json with a NON-STANDARD additive `sha256_norm` value field "
-                         "(rebase-0 hash == the SBOM-declared) — a demo of the Track B upstream proposal; "
-                         "CHIPSEC `check` keys on the sha256 and ignores it")
+                    help="ALSO write an efilist.json with an additive `sha256_norm` value field, in the "
+                         "form CHIPSEC `scan_image ... ,norm` writes; CHIPSEC `check` keys on the sha256 "
+                         "and ignores it")
     ap.add_argument("-o", "--out")
     a = ap.parse_args()
 
