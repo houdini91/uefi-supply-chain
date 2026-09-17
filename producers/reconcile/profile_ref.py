@@ -98,11 +98,11 @@ def _sections(buf, fh, oh):
     n = _u16(buf, fh + 2)
     size_opt = _u16(buf, fh + 16)
     base = oh + size_opt
+    if base + n * 40 > len(buf):                  # [G12] an empty table must still start in the image
+        raise NotNormalizable("section table past end of image")
     out = []
     for i in range(n):
         s = base + i * 40
-        if s + 40 > len(buf):
-            raise NotNormalizable("section table past end of image")
         out.append((_u32(buf, s + 12), _u32(buf, s + 8), _u32(buf, s + 20), _u32(buf, s + 16)))
     return out
 
@@ -240,11 +240,11 @@ def _zero_section_pointers(buf, sec_tbl, nsec):
 def _te_sections(buf, nsec):
     """Section table of a TE image: same 40-byte entries, at a fixed offset, holding
     ORIGINAL-PE coordinates (GenFw copies them verbatim and never rewrites them)."""
+    if TE_HEADER_SIZE + nsec * 40 > len(buf):
+        raise NotNormalizable("section table past end of image")
     out = []
     for i in range(nsec):
         h = TE_HEADER_SIZE + i * 40
-        if h + 40 > len(buf):
-            raise NotNormalizable("section table past end of image")
         out.append((_u32(buf, h + 12), _u32(buf, h + 8), _u32(buf, h + 20), _u32(buf, h + 16)))
     return out
 

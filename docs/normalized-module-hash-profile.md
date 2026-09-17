@@ -60,6 +60,12 @@ This document defines **two** profiles, one per executable format:
 | PE32 / PE32+ | `EFI_SECTION_PE32` | **`uefi-pe-rebase0.v1`** — §4.1–4.3 |
 | TE (Terse Executable) | `EFI_SECTION_TE` | **`uefi-te-rebase0.v1`** — §4.4 |
 
+The **section type** selects the profile, not the bytes: an implementation **MUST** apply
+`uefi-pe-rebase0.v1` only to an `EFI_SECTION_PE32` payload and `uefi-te-rebase0.v1` only to an
+`EFI_SECTION_TE` payload, and emit no value when the payload's signature does not match its section
+type (`MZ` for PE32, `VZ` for TE). Other section types that can hold a PE image, such as
+`EFI_SECTION_PIC`, are out of scope.
+
 They are **siblings, not versions**. A TE is produced from a PE by discarding its header prologue,
 so the two normalize different preimages and their digests are never equal, even for the same
 module. That is the reason a digest must carry its profile identifier: a consumer holding one of
@@ -95,16 +101,29 @@ computed file offset. The image is **never parsed and re-serialized** — re-ser
 the result depend on a particular PE library's writer, which a second implementation cannot be
 expected to reproduce.
 
-**What each step reads.** The section table is located once, before §4.1, from the preimage
-(`NumberOfSections` and `SizeOfOptionalHeader`, below), and that one table is used by both §4.1 and
-§4.2. Every other value §4.1 reads — each block header, each entry and each value it patches — is
-read from the working copy at the moment it is needed, after every earlier patch. Fixups are applied
-one at a time, in directory order. §4.2 runs after §4.1 has finished, so a field §4.2 zeroes ends as
-zero even if a fixup landed on it.
+**What each step reads.** Two kinds of value, and the difference matters when a fixup lands on
+bytes that are also read:
+
+- **Read once, from the preimage, before §4.1 begins:** `e_lfanew`, the optional-header magic,
+  `ImageBase` (`B`), `FileHeader.Characteristics`, `NumberOfSections`, `SizeOfOptionalHeader`,
+  `NumberOfRvaAndSizes`, both fields of the base-relocation directory entry (its address **and**
+  `Size`), and `VirtualAddress`, `SizeOfRawData` and `PointerToRawData` of every section-table
+  entry. These define where everything is; a fixup that later changes one of them does not move
+  anything. For TE (§4.4) the same holds for `NumberOfSections`, `StrippedSize`, `ImageBase`,
+  `DataDirectory[0]` and every section-table entry.
+- **Read from the working copy, at the moment it is needed:** each relocation block's `PageRVA` and
+  `BlockSize`, each entry, and each value a fixup patches. Fixups are applied one at a time, in
+  directory order, so a fixup sees every earlier patch — including one that rewrote the entry about
+  to be read.
+
+§4.2 runs after §4.1 has finished, at the offsets located before it, so a field §4.2 zeroes ends as
+zero even if a fixup landed on it. The checks that can fail without reading any relocation — the
+§4.2 header and section-table checks — are made before §4.1 begins.
 
 ### 4.1 Reverse the relocation fixups
 
-Let `B` = `OPTIONAL_HEADER.ImageBase`. If `B == 0` there is nothing to reverse; go to §4.2.
+Let `B` = `OPTIONAL_HEADER.ImageBase`. If `B == 0` there is nothing to reverse, and §4.1 does
+nothing; the §4.2 checks still apply.
 
 **Locating the section table.** `NumberOfSections` is the `uint16` at `fh + 2` and
 `SizeOfOptionalHeader` the `uint16` at `fh + 16`. The table begins at `oh + SizeOfOptionalHeader`
@@ -203,8 +222,9 @@ bytes; the `OPTIONAL_HEADER` follows at `oh = fh + 20`.
 
 **Fail — emit no value** if the image is shorter than `0x40` bytes, if `e_lfanew` leaves no room for
 the signature and COFF header, if there is no `"PE\0\0"` at `e_lfanew`, if the optional header
-does not reach `oh + 68`, or if the section table extends past the end of the image. These hold
-whatever the value of `B`; they are checked before §4.1 begins.
+does not reach `oh + 68`, or if the section table — `NumberOfSections × 40` bytes starting at
+`oh + SizeOfOptionalHeader` — does not end within the image. That includes an empty table that would
+start past the end. These hold whatever the value of `B`; they are checked before §4.1 begins.
 
 | Field | Offset | Size |
 |---|---|---|
@@ -314,8 +334,7 @@ GenFw writes that non-zero-address-with-zero-size deliberately, *because* TE lac
 > **This profile has an oracle the PE32 one never had.** Its vectors are not merely two
 > implementations agreeing: `GenFw --rebase <addr>` followed by `GenFw -t` produces a genuinely
 > rebased TE using edk2's own tools, and normalizing it **MUST** reproduce, byte for byte, the TE
-> built from the same module at base 0. §7 carries that round trip at three different base
-> addresses. An independent oracle is stronger evidence than agreement, and it is what caught the
+> built from the same module at base 0. §7 carries that round trip for two rebased addresses. An independent oracle is stronger evidence than agreement, and it is what caught the
 > section-pointer defect recorded in §12.1.
 
 ## 5. Profile values
@@ -341,7 +360,9 @@ of, `uefi-pe-rebase0.v1`. A change to §3 or §4 that alters a digest a conformi
 could **correctly** have produced requires a new version. A change that narrows behaviour the
 document left undefined, or that replaces a rule which produced a demonstrably wrong value, is
 errata against the current version: it is recorded in §12.1 with the evidence that no real module's
-digest moved, and it never silently widens what a value means. The distinction matters because the
+digest moved, and it never silently widens what a value means. A value that depended on a choice the
+document did not make — where it was silent, and two readings were possible — was not "correctly
+produced" in this sense; settling that choice is errata. The distinction matters because the
 identifier is the whole contract — a version bump for a fix that changes nothing observable strands
 every value already published under the old one.
 
@@ -383,14 +404,22 @@ satisfaction — parsers differ in strictness, and a stricter one is not less co
 permitted is emitting a value that *differs* from the reference for the same input.
 
 Declining is not free, though: an implementation that emits no value for **any** vector marked
-`expect_value: true` in the runnable set is **not conformant**. Those vectors are the floor. Without
-one, an implementation that declines everything would satisfy "never differs" vacuously.
+`expect_value: true` — in the runnable PE set or the TE set — is **not conformant**, unless that
+vector is also marked `may_decline: true`. Those vectors are the floor. Without one, an
+implementation that declines everything would satisfy "never differs" vacuously.
+
+`may_decline` marks a vector built to test one rule on input a careful parser may reasonably refuse:
+a fixup landing in the headers or in its own relocation directory, or a layout a PE library is known
+to misread. Its expected value is still exact. An implementation may decline it; one that emits a
+value must emit that one.
 
 > This matters because it is already the observed situation. This repo's `canon_unrebase` (built on
 > `pefile`) and `profile_ref.py` (a dependency-free parser) both reproduce all 122 modules of the
 > OVMF reference and agree on every one — but on deliberately awkward synthetic inputs, `pefile`
-> declines where the hand parser proceeds. Under this model both are conformant, and the distinction
-> the model forbids — two different values for one input — has not been observed.
+> declines where the hand parser proceeds. Under this model both are conformant. The case the model
+> forbids — two different values for one input — **has** been observed, three times, each on crafted
+> input only: CHIPSEC's first implementation, and `canon_unrebase` twice (§12.1, 2026-09-17). Each
+> became a vector.
 
 Two implementations, neither derived from the other, are the practical test of whether §3 and §4 say
 enough. `profile_ref.py` was written from this document alone for exactly that purpose; the places
@@ -405,13 +434,17 @@ Three files.
 profile, and **the only vectors here backed by an independent oracle**. edk2's own `GenFw` performs
 the forward operation these reverse: `--rebase <addr>` relocates a module, `-t` converts it to TE,
 and normalizing the result must reproduce, byte for byte, the TE built from the same module at base
-0. Two base addresses, plus the sentinel case and three negatives. Nothing of ours contributes to
-the expected answer.
+0. Three are GenFw's output as it stands: the module at base 0 and rebased to two other addresses.
+The other six are that rebased output patched by `te-vectors.py` to isolate one rule each: the
+sentinel directory, a fixup that rewrites its own directory, and four failures. Nothing of ours
+contributes to the expected answer for the first three; the other six take theirs from
+`profile_ref.py`, like the runnable PE set.
 
 > Prefer an oracle to agreement wherever one exists. Two implementations agreeing cannot catch a
 > rule both get wrong — that happened three times here, and the third (§12.1, the section-table
 > pointer pair) was caught by exactly this round trip and by nothing else. Regenerate with
 > `te-vectors.py --emit --edk2 <tree>`; check with `--check`, which needs neither edk2 nor GenFw.
+> `--derive` rebuilds only the six patched vectors from the stored GenFw output.
 
 The other two cover `uefi-pe-rebase0.v1`, and both are needed.
 
@@ -427,7 +460,10 @@ non-zero `TimeDateStamp`/`CheckSum`, and every failure case had never executed. 
 get the entire 32-bit path wrong and still reproduce all 122 real modules.
 
 Expected values in the runnable file are produced by `profile_ref.py`, **not** by the implementation
-under test — vectors generated by the code they check prove only that it agrees with itself.
+under test — vectors generated by the code they check prove only that it agrees with itself. Four of
+them carry `may_decline` (§6): three put a fixup on the headers, a section entry or the directory's
+`Size`, which tests the read rule at the top of §4; the fourth is an ordinary layout that `pefile`
+misreads.
 
 **What the vectors cannot test.** They feed PE bytes directly, so §3 (the section-header strip,
 including the 8-byte extended form) is never exercised by them; that clause is checked only by
@@ -551,20 +587,29 @@ every byte **except one**, and that byte was the second octet of this pair. Two 
 agreeing would never have surfaced it — both omitted the field. Zeroing it changes no real module's
 digest, and it is why §7's oracle matters more than agreement.
 
-**2026-09-17 — what each step reads, and where the section table must be (§4, §4.1, §4.2, §4.4).**
-§4 said the steps run in order but not what each one reads. Two implementations that both reversed
-the fixups first still disagreed on crafted input: one read relocation entries from the untouched
-preimage and the other from the working copy, so a fixup that rewrote a later entry of its own
-directory produced two different answers. A third zeroed the header fields *before* walking the
-relocations, contrary to "in order", and differed wherever a fixup landed on one of them. §4 now
-states the read rule: the section table is located once, before §4.1; everything else §4.1 reads
-comes from the working copy, one fixup at a time.
+**2026-09-17 — what each step reads, and where the section table must be (§2, §4, §4.1, §4.2,
+§4.4).** §4 said the steps run in order but not what each one reads. Implementations that all
+reversed the fixups first still produced different values on crafted input, depending on which
+bytes they read before patching and which after:
 
-§4.1 also listed "a section table extending past the end of the image" as a failure only when
-`B ≠ 0`, and the reference implementation noticed it only when it had a relocation directory to
-walk. §4.2 writes into every section header regardless, so the check now applies to every input,
-before §4.1, in both profiles.
+- CHIPSEC's first implementation zeroed the §4.2 fields before walking the relocations, contrary to
+  "in order", and read TE relocation entries from the untouched input.
+- `canon_unrebase` re-read section-table entries from the working copy for every fixup, so a fixup
+  that rewrote an entry moved the fixups after it.
+- `canon_unrebase` also let `pefile` locate the relocation directory. `pefile` rounds
+  `PointerToRawData` down to 0x200, so on an ordinary layout with a smaller `FileAlignment` it read
+  the directory from the wrong offset, found an empty block, and reversed nothing.
 
-Found by differential fuzzing of two implementations, not by any real module. No real module has a
-fixup that lands in its headers or its own relocation directory, and a real section table always fits
-the image, so no published digest moves. The new cases are covered by vectors in §7.
+§4 now lists which values are read once, from the preimage, and which from the working copy. §2 now
+says that the section type selects the profile.
+
+§4.1 listed "a section table extending past the end of the image" as a failure only when `B ≠ 0`, and
+`profile_ref.py` checked it only when it had a relocation directory to walk. §4.2 writes into every
+section header whatever `B` is, so the check now applies to every input, in both profiles, including
+an empty table that would start past the end.
+
+Found by review and differential fuzzing, not by any real module. No real module has a fixup in its
+headers, its section table or its own relocation directory; every real section table fits its image;
+and `profile_ref.py` gives the same value before and after this change on all 487 modules of four
+distribution OVMF images. The new cases are covered by vectors in §7, four of them marked
+`may_decline` (§6).

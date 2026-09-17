@@ -226,12 +226,12 @@ def emit(edk2):
                      % v["id"])
     return {
         "profile": PROFILE,
-        "description": "Conformance vectors for the TE sibling profile (uefi-te-rebase0.v1, "
-                       "profile s4.4). Inputs are shipped inline (base64) and were produced by "
-                       "edk2's own GenFw, which performs the forward operation these vectors "
-                       "reverse. The rebased entries MUST normalize to the same digest as "
-                       "te-real-base0 -- an independent oracle, not agreement between two of our "
-                       "implementations.",
+        "description": ("Conformance vectors for the TE sibling profile (uefi-te-rebase0.v1, profile s4.4"
+                        "). Inputs are shipped inline (base64). te-real-* were produced by edk2's own Gen"
+                        "Fw, which performs the forward operation these vectors reverse: the rebased entr"
+                        "ies MUST normalize to the same digest as te-real-base0, an independent oracle. T"
+                        "he other entries are that rebased output patched to isolate one rule each; their"
+                        " expected values come from producers/reconcile/profile_ref.py."),
         "oracle": "edk2 BaseTools GenFw: `--rebase <addr>` then `-t`",
         "module": MODULE,
         "tool": "producers/reconcile/te-vectors.py",

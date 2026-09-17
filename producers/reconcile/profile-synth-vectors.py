@@ -48,7 +48,8 @@ REL_ABSOLUTE, REL_HIGHLOW, REL_DIR64, REL_HIGH = 0, 3, 10, 1
 def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
              timestamp=0, checksum=0, truncate_at=None, odd_blocksize=False,
              text_raw_size=None, text_praw_zero=False, text_va=None,
-             relocs_stripped=False, text_praw=None, num_sections=2):
+             relocs_stripped=False, text_praw=None, num_sections=2, reloc_raw=RELOC_RAW,
+             file_alignment=0x100, size_opt_override=None):
     """A minimal but structurally valid PE whose .text holds two self-referential
     absolute pointers (ImageBase + own RVA), described by a .reloc block -- so
     reversing the fixups is a real operation, not a no-op.
@@ -65,6 +66,8 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
                       (the header fields s4.2 zeroes) instead of at .text's own bytes
 
     truncate_at="sectable" cuts the file inside the section table's second entry.
+    reloc_raw / file_alignment place .reloc's bytes at another legal file offset.
+    size_opt_override sets SizeOfOptionalHeader, i.e. where the section table starts.
     """
     if pe_plus:
         magic, size_opt, ib_off, numrva_off, dd_off = MAGIC64, 112 + 16 * 8, 24, 108, 112
@@ -82,7 +85,8 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
     coff = E_LFANEW + 4
     struct.pack_into("<H", buf, coff + 2, num_sections)    # NumberOfSections
     struct.pack_into("<I", buf, coff + 4, timestamp)       # TimeDateStamp
-    struct.pack_into("<H", buf, coff + 16, size_opt)       # SizeOfOptionalHeader
+    struct.pack_into("<H", buf, coff + 16,                 # SizeOfOptionalHeader
+                     size_opt if size_opt_override is None else size_opt_override)
 
     opt = coff + 20
     struct.pack_into("<H", buf, opt, magic)
@@ -91,7 +95,7 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
     struct.pack_into("<I", buf, opt + 16, TEXT_VA)         # AddressOfEntryPoint -- pefile warns
     struct.pack_into("<I", buf, opt + 64, checksum)        # CheckSum              if it is outside a section
     struct.pack_into("<I", buf, opt + 32, 0x1000)          # SectionAlignment
-    struct.pack_into("<I", buf, opt + 36, 0x100)           # FileAlignment -- must divide
+    struct.pack_into("<I", buf, opt + 36, file_alignment)  # FileAlignment -- must divide
                                                        # every PointerToRawData, or pefile
                                                        # silently maps RVAs to the wrong
                                                        # section and reads garbage
@@ -106,7 +110,7 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
     sec = opt + size_opt
     for i, (nm, va, raw, sz) in enumerate(
             ((b".text", TEXT_VA, TEXT_RAW, TEXT_SIZE),
-             (b".reloc", RELOC_VA, RELOC_RAW, RELOC_SIZE))):
+             (b".reloc", RELOC_VA, reloc_raw, RELOC_SIZE))):
         b = sec + i * 40
         buf[b:b + 8] = nm.ljust(8, b"\x00")
         struct.pack_into("<I", buf, b + 8, sz)             # VirtualSize
@@ -134,11 +138,11 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
                          (image_base + rva) & ((1 << (ptr_w * 8)) - 1))
 
     if with_reloc:                                         # one block, two entries
-        struct.pack_into("<II", buf, RELOC_RAW, TEXT_VA, nreloc + (1 if odd_blocksize else 0))
+        struct.pack_into("<II", buf, reloc_raw, TEXT_VA, nreloc + (1 if odd_blocksize else 0))
         if odd_blocksize:                                  # directory size must cover the block
             struct.pack_into("<II", buf, opt + dd_off + 5 * 8, RELOC_VA, nreloc + 1)
         for i, rva in enumerate(rvas):
-            struct.pack_into("<H", buf, RELOC_RAW + 8 + i * 2,
+            struct.pack_into("<H", buf, reloc_raw + 8 + i * 2,
                              (rtype << 12) | ((rva - TEXT_VA) & 0xFFF))
     if truncate_at == "oh+100":
         return bytes(buf[:opt + 100])
@@ -149,12 +153,15 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
 
 # ImageBase of a PE32+ built above: e_lfanew + 4 (signature) + 20 (COFF) + 24.
 PE32PLUS_IMAGEBASE_OFF = E_LFANEW + 4 + 20 + 24
+PE32PLUS_SECTION_TABLE = E_LFANEW + 4 + 20 + 112 + 16 * 8
+PE32PLUS_RELOC_DIR_ENTRY = E_LFANEW + 4 + 20 + 112 + 5 * 8     # DataDirectory[5] {VA, Size}
 
 # Vectors built from crafted input that no real module resembles. Their expected value is
 # still exact -- an implementation that emits one MUST emit this one -- but declining them
 # does not make an implementation non-conformant (s6): a stricter parser may reasonably
 # refuse a section whose raw data overlaps the headers.
-MAY_DECLINE = {"pe32plus-fixup-lands-on-imagebase"}
+MAY_DECLINE = {"pe32plus-fixup-lands-on-imagebase", "pe32plus-fixup-rewrites-section-entry",
+               "pe32plus-fixup-rewrites-directory-size", "pe32plus-reloc-off-sector-boundary"}
 
 CASES = [
     # (id, why it exists, builder-kwargs, expect_value)
@@ -182,10 +189,11 @@ CASES = [
      "Rebased PE32+ whose image ends AFTER the optional header's first 68 bytes (so s4.2 "
      "passes) but BEFORE data-directory index 5. s4.1: an unreadable directory with B != 0 "
      "is a failure, not an absence. The reference itself emitted a value here until review. "
-     "NumberOfSections is 0 so the section table trivially fits (s4.2): otherwise the table "
-     "check fires first and the vector would decline for a different reason than it names.",
-     dict(image_base=0x0000000140000000, pe_plus=True, truncate_at="oh+100", num_sections=0),
-     False),
+     "The section table is empty and starts inside the image (NumberOfSections 0, "
+     "SizeOfOptionalHeader 0), so it passes s4.2: otherwise the table check fires first and the "
+     "vector would decline for a different reason than it names.",
+     dict(image_base=0x0000000140000000, pe_plus=True, truncate_at="oh+100", num_sections=0,
+          size_opt_override=0), False),
     ("neg-odd-blocksize",
      "Relocation block whose BlockSize is odd. Entries are u16, so the last one straddles the "
      "block end. s4.1: fail. Unspecified until review; the reference emitted a value.",
@@ -224,6 +232,31 @@ CASES = [
      "fixups (ImageBase becomes B - B = 0), THEN zero the s4.2 fields. An implementation that "
      "zeroes first leaves 0 - B there and differs. Found by differential fuzzing, 2026-09-17.",
      dict(image_base=0x0000000140000000, pe_plus=True, text_praw=PE32PLUS_IMAGEBASE_OFF), True),
+    ("pe32plus-fixup-rewrites-section-entry",
+     ".text PointerToRawData moved onto .text's own section header, so the first fixup changes "
+     "that entry's VirtualSize and VirtualAddress and the second its SizeOfRawData and "
+     "PointerToRawData. s4: section-table fields are read once, before s4.1, so the second fixup "
+     "still maps through the ORIGINAL entry. Re-reading the entry for each mapping gives a "
+     "different value.",
+     dict(image_base=0x0000000140000000, pe_plus=True, text_praw=PE32PLUS_SECTION_TABLE + 8), True),
+    ("pe32plus-fixup-rewrites-directory-size",
+     ".text PointerToRawData moved onto DataDirectory[5], so the first fixup shrinks the "
+     "relocation directory's Size below the block it is part of. s4: the directory's address and "
+     "Size are read once, before s4.1, so the walk completes. Re-reading Size per block would stop "
+     "it with a block that overruns the directory.",
+     dict(image_base=0x0000000140000000, pe_plus=True, text_praw=PE32PLUS_RELOC_DIR_ENTRY), True),
+    ("pe32plus-reloc-off-sector-boundary",
+     "An ordinary layout: FileAlignment 0x20 and .reloc at file offset 0x420. Nothing is wrong "
+     "with it, but pefile rounds every PointerToRawData down to 0x200 and so reads the relocation "
+     "directory 0x20 bytes early; a pefile-based implementation must notice and decline rather "
+     "than reverse nothing. Marked may_decline for that reason only.",
+     dict(image_base=0x0000000140000000, pe_plus=True, reloc_raw=RELOC_RAW + 0x20,
+          file_alignment=0x20), True),
+    ("neg-empty-section-table-past-end",
+     "NumberOfSections 0, SizeOfOptionalHeader so large the (empty) table would start past the end "
+     "of the image. s4.2: the table must end within the image, even when it has no entries.",
+     dict(image_base=0, pe_plus=True, with_reloc=False, num_sections=0, size_opt_override=0xFFF0),
+     False),
     ("neg-section-table-past-end-base0",
      "ImageBase 0, image cut off inside the section table. s4.2 writes into every section "
      "header, so the table must fit the image whatever B is. The reference used to stop "
