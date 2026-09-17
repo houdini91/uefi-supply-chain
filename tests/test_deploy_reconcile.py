@@ -204,6 +204,12 @@ with open(os.path.join(uj_root, "OVMF.fd.UEFI.json"), "w") as _f:
 mods_moved = dr.collect_modules(os.path.join(uj_root, "OVMF.fd.dir"))
 check("collect_modules: a UEFI.json written from another working directory still resolves its modules",
       len(mods_moved) == 1 and mods_moved[0]["guid"] == GUID_NEST)
+_uefi_json[0]["children"][0]["children"][0]["children"][0]["file_path"] = "gone/ModNest.efi"
+with open(os.path.join(uj_root, "OVMF.fd.UEFI.json"), "w") as _f:
+    json.dump(_uefi_json, _f)
+mods_unresolved = dr.collect_modules(os.path.join(uj_root, "OVMF.fd.dir"))
+check("collect_modules: a UEFI.json none of whose paths resolve falls back to the dir walk, not to zero modules",
+      len(mods_unresolved) == 1 and mods_unresolved[0]["raw"] == PE)
 # (b) magic-based dir fallback (no UEFI.json): '.efi' directly under an 'NN_S_COMPRESSION.dir'
 fb_root = tempfile.mkdtemp()
 _comp = os.path.join(fb_root, "FV", "00_%s.dir" % _dash("aa" * 16), "01_S_COMPRESSION.dir")

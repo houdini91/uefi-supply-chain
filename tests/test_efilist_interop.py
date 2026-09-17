@@ -142,6 +142,12 @@ check("build_efilist(annotated): no field where the profile gives no value (an u
       "not hashed as found and labelled as normalized)",
       "sha256_norm" not in ela[hashlib.sha256(PE).hexdigest()]
       and "sha256_norm" not in ela[hashlib.sha256(TE).hexdigest()])
+check("labelled_norm: the section type picks the profile; a mismatched signature or another "
+      "executable section type (EFI_SECTION_PIC) gets no value",
+      dr.labelled_norm(XIP_PE, dr.EFI_SECTION_PE32) == "uefi-pe-rebase0.v1:sha256:" + XIP_PE_NORM
+      and dr.labelled_norm(XIP_PE, 0x11) is None
+      and dr.labelled_norm(XIP_TE, dr.EFI_SECTION_PE32) is None
+      and dr.labelled_norm(XIP_PE, dr.EFI_SECTION_TE) is None)
 
 
 # ---- 2) CROSS-TOOL: our efilist == CHIPSEC's own scan_image `generate` on the OVMF reference ----

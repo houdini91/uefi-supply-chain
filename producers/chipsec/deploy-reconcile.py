@@ -90,13 +90,15 @@ FV_DIR_RE = re.compile(r"^[0-9]+_([0-9a-fA-F-]{36})(?:\.(FV_[A-Z_]+))?\.dir$")
 # magic), so an extension filter both mislabels TE as PE32 and misses magic-only modules.
 _PE_MAGIC = b"MZ"
 _TE_MAGIC = b"VZ"
+EFI_SECTION_PE32 = 0x10
+EFI_SECTION_TE = 0x12
 
 
 def _norm_guid(g):
     return (g or "").replace("-", "").lower()
 
 
-def _mk_mod(raw, guid, filetype, name, path, efilist):
+def _mk_mod(raw, guid, filetype, name, path, efilist, section_type=None):
     """Assemble a module dict {guid, name, filetype, fv_type, sec_type, path, raw, asfound, is_pe}.
     is_pe / sec_type are derived from the extracted bytes' MAGIC (MZ->PE32, VZ->TE), never the file
     extension. An OPTIONAL efilist.json (keyed by CHIPSEC's as-found sha256) supplies a NAME hint
@@ -112,11 +114,16 @@ def _mk_mod(raw, guid, filetype, name, path, efilist):
                          "the authoritative FILE_GUID\n" % (hint_guid[:12], guid[:12], meta.get("name") or name))
     guid = guid or hint_guid  # hint is a fallback ONLY when no authoritative GUID was derived
     is_te = raw[:2] == _TE_MAGIC
+    if section_type is None:
+        # Only the dir-walk fallback lands here: the decode tree records no section type, so the
+        # signature stands in for it.
+        section_type = EFI_SECTION_TE if is_te else EFI_SECTION_PE32 if raw[:2] == _PE_MAGIC else None
     return {
         "guid": guid, "name": meta.get("name") or name,
         "filetype": filetype, "fv_type": filetype,
         # 'type' the efilist records is the SECTION type (S_PE32/S_TE), from MAGIC.
         "sec_type": "S_TE" if is_te else "S_PE32",
+        "section_type": section_type,
         "path": path, "raw": raw, "asfound": asfound,
         # a normalizable PE has the 'MZ' DOS header; TE images ('VZ') and non-PE blobs do not —
         # those are is_pe=False -> UNVERIFIABLE (surfaced, never hashed as if they were the PE).
@@ -130,7 +137,8 @@ def _collect_from_uefi_json(uefi_json_path, base_dir, efilist):
     module whose FILE_GUID + FFS filetype come from its NEAREST ANCESTOR EFI_FILE node — so a module
     nested arbitrarily deep under S_COMPRESSION / S_GUID_DEFINED / nested-FV sections is still
     collected with the right identity (the dir-name layout is irrelevant). Returns a module list, or
-    None to signal 'fall back to the dir walk' when the JSON is unreadable."""
+    None when the JSON is unreadable; the caller falls back to the dir walk on None or on an empty
+    list, which means no file_path resolved."""
     try:
         with open(uefi_json_path) as f:
             tree = json.load(f)
@@ -177,7 +185,11 @@ def _collect_from_uefi_json(uefi_json_path, base_dir, efilist):
                 if raw[:2] in (_PE_MAGIC, _TE_MAGIC):
                     seen.add(path)
                     name = node.get("ui_string") or os.path.basename(path).rsplit(".", 1)[0]
-                    mods.append(_mk_mod(raw, anc_guid, anc_type, name, path, efilist))
+                    try:
+                        section_type = int(node.get("Type"))
+                    except (TypeError, ValueError):
+                        section_type = None
+                    mods.append(_mk_mod(raw, anc_guid, anc_type, name, path, efilist, section_type))
         for _k, v in node.items():
             if isinstance(v, (list, dict)):
                 rec(v, anc_guid, anc_type)
@@ -231,7 +243,8 @@ def collect_modules(decode_dir, efilist_path=None):
     uefi_json = (dd[:-4] if dd.endswith(".dir") else dd) + ".UEFI.json"
     if os.path.isfile(uefi_json):
         mods = _collect_from_uefi_json(uefi_json, base_dir, efilist)
-        if mods is not None:
+        # An empty result means no file_path resolved, not that the image has no modules.
+        if mods:
             return mods
     return _collect_from_dirs(decode_dir, efilist)
 
@@ -255,16 +268,19 @@ def _guid_dashed_upper(norm_guid):
     return ("%s-%s-%s-%s-%s" % (g[0:8], g[8:12], g[12:16], g[16:20], g[20:32])).upper()
 
 
-def labelled_norm(raw):
-    """`<profile>:sha256:<hex>` for a PE32 or TE image, or None where the profile gives no value.
+def labelled_norm(raw, section_type):
+    """`<profile>:sha256:<hex>` for an EFI_SECTION_PE32 or EFI_SECTION_TE payload, else None.
+
+    The section type picks the profile (profile s2); a payload whose signature does not match it
+    gets no value, and neither does any other section type.
 
     Always the full profile, via profile_ref -- not normalize()'s "direct" shortcut, which hashes
     a non-XIP module as found without parsing it. That shortcut is right for reconciling against
     the SBOM, but a value labelled with a profile must be what the profile computes.
     """
-    if raw[:2] == _PE_MAGIC:
+    if section_type == EFI_SECTION_PE32 and raw[:2] == _PE_MAGIC:
         profile, fn = "uefi-pe-rebase0.v1", profile_ref.normalize
-    elif raw[:2] == _TE_MAGIC:
+    elif section_type == EFI_SECTION_TE and raw[:2] == _TE_MAGIC:
         profile, fn = "uefi-te-rebase0.v1", profile_ref.normalize_te
     else:
         return None
@@ -303,7 +319,7 @@ def build_efilist(mods, annotated=False):
             "type": md["sec_type"],
         }
         if annotated:
-            norm = labelled_norm(md["raw"])
+            norm = labelled_norm(md["raw"], md["section_type"])
             if norm:
                 entry["sha256_norm"] = norm
         efilist[key] = entry
