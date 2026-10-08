@@ -49,7 +49,7 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
              timestamp=0, checksum=0, truncate_at=None, odd_blocksize=False,
              text_raw_size=None, text_praw_zero=False, text_va=None,
              relocs_stripped=False, text_praw=None, num_sections=2, reloc_raw=RELOC_RAW,
-             file_alignment=0x100, size_opt_override=None):
+             file_alignment=0x100, size_opt_override=None, dir_size_extra=0):
     """A minimal but structurally valid PE whose .text holds two self-referential
     absolute pointers (ImageBase + own RVA), described by a .reloc block -- so
     reversing the fixups is a real operation, not a no-op.
@@ -68,6 +68,7 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
     truncate_at="sectable" cuts the file inside the section table's second entry.
     reloc_raw / file_alignment place .reloc's bytes at another legal file offset.
     size_opt_override sets SizeOfOptionalHeader, i.e. where the section table starts.
+    dir_size_extra pads the relocation directory's declared Size past its last block.
     """
     if pe_plus:
         magic, size_opt, ib_off, numrva_off, dd_off = MAGIC64, 112 + 16 * 8, 24, 108, 112
@@ -105,7 +106,7 @@ def build_pe(image_base, pe_plus=True, with_reloc=True, reloc_type=None,
 
     nreloc = 8 + 2 * 2
     if with_reloc:
-        struct.pack_into("<II", buf, opt + dd_off + 5 * 8, RELOC_VA, nreloc)
+        struct.pack_into("<II", buf, opt + dd_off + 5 * 8, RELOC_VA, nreloc + dir_size_extra)
 
     sec = opt + size_opt
     for i, (nm, va, raw, sz) in enumerate(
@@ -252,6 +253,12 @@ CASES = [
      "than reverse nothing. Marked may_decline for that reason only.",
      dict(image_base=0x0000000140000000, pe_plus=True, reloc_raw=RELOC_RAW + 0x20,
           file_alignment=0x20), True),
+    ("neg-trailing-bytes-in-the-directory",
+     "The relocation directory's Size runs 4 bytes past its last block, so the walk ends with "
+     "bytes it never read. s4.1 requires the blocks to cover Size exactly unless a zero BlockSize "
+     "ends them: a directory that cannot be read is a failure, not a finished one. Every "
+     "implementation here accepted this until Copilot's review of the CHIPSEC PR, 2026-10-08.",
+     dict(image_base=0x0000000140000000, pe_plus=True, dir_size_extra=4), False),
     ("neg-empty-section-table-past-end",
      "NumberOfSections 0, SizeOfOptionalHeader so large the (empty) table would start past the end "
      "of the image. s4.2: the table must end within the image, even when it has no entries.",

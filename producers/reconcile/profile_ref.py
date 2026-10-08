@@ -72,6 +72,12 @@ GUESSES = [
             "function only noticed it when it had a directory to walk. Now: the section table is "
             "located once, before s4.1, and must fit the image for any B; every other read in s4.1 is "
             "from the working copy. No real module is affected -- a real table always fits."),
+    ("G13", "FOUND BY REVIEW, fourth round -- by Copilot, on the CHIPSEC pull request. The walk "
+            "stopped when fewer than 8 bytes remained and reported success, so a directory whose "
+            "Size ended 1-7 bytes past its last block was treated as fully reversed. Same fail-open "
+            "class as G3/G4/G10, and the one instance of it this document shared with every "
+            "implementation here. Now: the blocks must land on Size exactly, unless a zero "
+            "BlockSize ends the walk. None of 487 real modules has bytes left over."),
 ]
 
 ABSOLUTE, HIGHLOW, DIR64 = 0, 3, 10
@@ -191,6 +197,7 @@ def normalize(preimage: bytes) -> bytes:
                 page_rva = _u32(buf, p)
                 block_size = _u32(buf, p + 4)
                 if block_size == 0:
+                    p = end                                               # [G13] documented end
                     break
                 if block_size < 8 or p + block_size > end:
                     raise NotNormalizable("malformed relocation block")   # [G5]
@@ -215,6 +222,9 @@ def normalize(preimage: bytes) -> bytes:
                         v = struct.unpack_from("<Q", buf, target)[0]
                         struct.pack_into("<Q", buf, target, (v - B) & ((1 << 64) - 1))
                 p += block_size
+            if p != end:                                                  # [G13]
+                raise NotNormalizable("relocation blocks do not cover the directory's Size")
+
 
     # --- s4.2 zero the placement-dependent header fields ---
     struct.pack_into("<I", buf, fh + 4, 0)          # TimeDateStamp
@@ -299,6 +309,7 @@ def normalize_te(preimage: bytes) -> bytes:
                 page_rva = _u32(buf, p)
                 block_size = _u32(buf, p + 4)
                 if block_size == 0:
+                    p = end                                               # [G13] documented end
                     break
                 if block_size < 8 or p + block_size > end:
                     raise NotNormalizable("malformed relocation block")
@@ -325,6 +336,9 @@ def normalize_te(preimage: bytes) -> bytes:
                         v = struct.unpack_from("<Q", buf, target)[0]
                         struct.pack_into("<Q", buf, target, (v - B) & ((1 << 64) - 1))
                 p += block_size
+            if p != end:                                                  # [G13]
+                raise NotNormalizable("relocation blocks do not cover the directory's Size")
+
 
     _zero_section_pointers(buf, TE_HEADER_SIZE, nsec)
     struct.pack_into("<Q", buf, 16, 0)              # TE ImageBase

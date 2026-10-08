@@ -316,6 +316,12 @@ def canon_unrebase(pe_bytes):
                     # HIGH/LOW/HIGHADJ/ARM/etc. — not handled; fail closed so we never emit a
                     # partially-un-rebased (wrong) image as if it were canonical.
                     raise ValueError("unsupported relocation type %d" % e.type)
+        if expect_blk != dir_end:
+            # The blocks must cover the declared Size exactly (profile s4.1). pefile stops at a
+            # zero BlockSize without reporting it, so an image that ends its directory that way
+            # is declined here rather than guessed at.
+            raise ValueError("relocation blocks cover %d of the declared %d directory bytes"
+                             % (expect_blk - dir_off, _dd5.Size))
     # PointerToRelocations / PointerToLinenumbers in every section header: COFF
     # object-file fields, zero in every linked image, but GenFw's rebase stores the
     # load address in the first non-code section's pair (GenFw.c:966-972). That is

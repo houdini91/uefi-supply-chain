@@ -173,7 +173,10 @@ entry  = uint16 ; type = entry >> 12 , offset = entry & 0x0FFF
 target = PageRVA + offset          ; entry count = (BlockSize − 8) / 2
 ```
 
-A `BlockSize` of `0` ends the walk. Then for each entry, at the file offset its target RVA maps to:
+A `BlockSize` of `0` ends the walk, and any bytes after it are not read. Otherwise the blocks
+**MUST** cover the directory's `Size` exactly: if fewer than 8 bytes remain when a block ends, so
+that no further block header fits and the last one did not land on `Size`, the directory cannot be
+read and **MUST** emit no value. Then for each entry, at the file offset its target RVA maps to:
 
 | Type | Name | Action |
 |---:|---|---|
@@ -185,7 +188,8 @@ A `BlockSize` of `0` ends the walk. Then for each entry, at the file offset its 
 **Failure cases — all emit no value, never a partially-normalized image.** With `B ≠ 0`: an image
 that ends before `NumberOfRvaAndSizes` or before data-directory index 5 can be read (an
 **unreadable** directory is a failure, not an absence — see the callout below). An unsupported
-relocation type; a `BlockSize` below 8, **odd**, or extending past the directory; a directory
+relocation type; a `BlockSize` below 8, **odd**, or extending past the directory; blocks that do not
+cover the directory's `Size` exactly, with no `BlockSize` of `0` to end them; a directory
 extending past the end of the image; an RVA (of the directory or of any fixup target) that maps to no
 section, including one landing in a virtual-only tail or in a section with no raw data; a fixup
 target whose 4 or 8 bytes would run past the end of the image; an absent directory with
@@ -613,3 +617,15 @@ headers, its section table or its own relocation directory; every real section t
 and `profile_ref.py` gives the same value before and after this change on all 487 modules of four
 distribution OVMF images. The new cases are covered by vectors in §7, four of them marked
 `may_decline` (§6).
+
+**2026-10-08 — the blocks must cover the directory's `Size` (§4.1, §4.4).** The walk stopped as
+soon as fewer than 8 bytes remained, and reported success. A directory whose `Size` ended 1 to 7
+bytes after its last block was therefore treated as fully reversed, and a value was emitted for an
+image whose directory could not be read — the same fail-open class as the three recorded above, and
+the one case of it that both this document and every implementation here shared. The blocks must now
+land on `Size` exactly, unless a `BlockSize` of `0` ends the walk first.
+
+Found by GitHub Copilot's review of the CHIPSEC pull request. No real module is affected: across the
+487 PE32 modules of four distribution OVMF images, 428 consume the directory exactly, 59 have no
+directory at all, 1 declines for an unrelated reason, and none has bytes left over. Covered by a
+negative vector in §7.
